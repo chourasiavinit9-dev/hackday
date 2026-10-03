@@ -41,7 +41,7 @@ services:
         destination: /index.html
     envVars:
       - key: API_BASE
-        value: https://skillforge-backend.onrender.com
+        value: https://skillforge-backend-vm84.onrender.com
 
 # ─── PostgreSQL Database (open-source, Render managed) ───────────────────────
 # Used for the audit ledger (replaces local SQLite on production)
