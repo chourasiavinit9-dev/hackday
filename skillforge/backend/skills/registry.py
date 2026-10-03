@@ -77,6 +77,28 @@ BUILTIN_SKILLS = {
         "enabled": True,
         "source": "built-in",
     },
+    "interview-research": {
+        "id": "interview-research",
+        "name": "interview-research",
+        "description": "Research company interview processes, rounds, technical/coding/behavioral questions, and preparation advice using Agent-Reach.",
+        "version": "1.0.0",
+        "capabilities": ["Company research", "Interview rounds & process", "Technical & coding questions", "Suggested answers", "Source verification"],
+        "tools": ["reach_research", "reach_web_search", "reach_web_read", "extract_interview_questions"],
+        "installed": True,
+        "enabled": True,
+        "source": "built-in",
+    },
+    "github-research": {
+        "id": "github-research",
+        "name": "github-research",
+        "description": "Search and inspect public GitHub repositories and open-source code via Agent-Reach.",
+        "version": "1.0.0",
+        "capabilities": ["Search repositories", "Inspect open-source code", "Find issues & PRs"],
+        "tools": ["reach_github_search"],
+        "installed": True,
+        "enabled": True,
+        "source": "built-in",
+    },
     "skill-builder": {
         "id": "skill-builder",
         "name": "skill-builder",
@@ -168,9 +190,18 @@ def resolve_skill_for_goal(goal: str) -> Optional[str]:
     """Simple keyword-based skill resolver. Gemma 4 can do smarter routing."""
     goal_lower = goal.lower()
 
-    # Job-specific first (more specific)
-    if any(kw in goal_lower for kw in ["job", "interview", "career", "hiring", "recruit", "position", "vacancy"]):
+    if any(kw in goal_lower for kw in ["youtube", "video", "watch", "tutorial"]):
+        return "youtube-search"
+
+    # Job-specific (boards, hiring, vacancies)
+    if "job" in goal_lower or any(kw in goal_lower for kw in ["career", "hiring", "recruit", "position", "vacancy"]):
         return "job-search"
+
+    # Interview and company research (prioritized for pure interview research)
+    if any(kw in goal_lower for kw in ["interview question", "interview process", "interview round", "company background", "interview experience", "fresher", "suggested answer", "preparation advice", "rounds"]):
+        return "interview-research"
+    if any(kw in goal_lower for kw in ["github", "repository", "open source", "repo", "public repositories"]):
+        return "github-research"
     if any(kw in goal_lower for kw in ["paper", "research", "arxiv", "publication", "study", "journal"]):
         return "research-paper-search"
     if any(kw in goal_lower for kw in ["youtube", "video", "watch", "tutorial"]):

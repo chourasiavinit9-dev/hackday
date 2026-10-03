@@ -315,6 +315,13 @@ async def execute_workflow(request: AgentRequest) -> AsyncGenerator[dict, None]:
         if isinstance(result, dict):
             if result.get("content"):
                 accumulated_content += "\n" + result["content"]
+            if result.get("sources"):
+                # Agent-Reach reach_research sources & full extracted content
+                src_text = "\n".join(
+                    f"{s.get('title','')}\n{s.get('snippet','')}\n{s.get('full_content','')}"
+                    for s in result["sources"] if isinstance(s, dict)
+                )
+                accumulated_content += "\n" + src_text
             if result.get("jobs"):
                 # Flatten job listings to plain text for downstream steps (e.g. extract_interview_questions)
                 job_text = "\n".join(
@@ -373,6 +380,12 @@ async def execute_workflow(request: AgentRequest) -> AsyncGenerator[dict, None]:
     for item in all_results:
         res = item.get("result", {})
         if isinstance(res, dict):
+            # Agent-Reach sources
+            if res.get("sources"):
+                for s in res["sources"]:
+                    if isinstance(s, dict) and s.get("url"):
+                        collected_web_results.append(s)
+                        collected_urls.append({"title": s.get("title", "Research Source"), "url": s["url"], "type": "web"})
             # Tweets
             if res.get("tweets"):
                 for t in res["tweets"]:
@@ -409,13 +422,15 @@ async def execute_workflow(request: AgentRequest) -> AsyncGenerator[dict, None]:
                 collected_urls.append({"title": res.get("title", "Extracted Page"), "url": res["url"], "type": "page"})
 
     # Determine primary entity / intent
-    primary_intent = "general"
+    primary_intent = "report"
     goal_lower = (request.goal or "").lower()
-    if collected_tweets or any(k in goal_lower for k in ["twitter", "tweet", "x.com"]):
-        primary_intent = "twitter"
+    if any(k in goal_lower for k in ["interview", "process", "question", "round", "company background", "fresher", "answer"]):
+        primary_intent = "report"
+    elif collected_tweets or any(k in goal_lower for k in ["twitter", "tweet", "x.com"]):
+        primary_intent = "tweets"
     elif collected_videos or any(k in goal_lower for k in ["youtube", "video", "watch"]):
-        primary_intent = "youtube"
-    elif collected_jobs or any(k in goal_lower for k in ["job", "interview", "career", "hiring"]):
+        primary_intent = "videos"
+    elif collected_jobs or any(k in goal_lower for k in ["job", "career", "hiring"]):
         primary_intent = "jobs"
     elif collected_web_results or any(k in goal_lower for k in ["search", "find", "google", "lookup"]):
         primary_intent = "web"

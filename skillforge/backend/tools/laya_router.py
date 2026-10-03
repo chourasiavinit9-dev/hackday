@@ -22,7 +22,9 @@ SKILL_QUESTIONS = {
         "type": "choice",
         "instructions": "Which skill should handle this request?",
         "criteria": {
-            "job-search":       "finding jobs, careers, interview questions, hiring, recruitment, vacancies",
+            "interview-research": "company background, interview process, interview rounds, interview questions, fresher questions, suggested answers, preparation advice",
+            "github-research":    "inspecting public GitHub repositories, code search, open source repositories, projects",
+            "job-search":       "finding job openings, vacancies, hiring, recruitment, careers boards",
             "youtube-search":   "searching YouTube, finding videos, tutorials, lectures, transcripts, video summaries",
             "web-search":       "searching the web, finding information, news, general knowledge",
             "webpage-reader":   "reading a specific URL, opening a webpage, extracting text from a page",
@@ -127,20 +129,22 @@ def classify_goal(goal: str) -> dict:
                 return float(a.get("confidence", 0.0))
 
             skill_map = {
-                "job-search":     "job-search",
-                "youtube-search": "youtube-search",
-                "web-search":     "web-search",
-                "webpage-reader": "webpage-reader",
-                "research-paper": "research-paper-search",
-                "twitter-search": "web-search",
-                "skill-builder":  "skill-builder",
-                "file-creator":   "web-search",
+                "interview-research": "interview-research",
+                "github-research":    "github-research",
+                "job-search":         "job-search",
+                "youtube-search":     "youtube-search",
+                "web-search":         "web-search",
+                "webpage-reader":     "webpage-reader",
+                "research-paper":     "research-paper-search",
+                "twitter-search":     "web-search",
+                "skill-builder":      "skill-builder",
+                "file-creator":       "file-creator",
             }
 
             raw_skill = _choice("skill", "web-search")
             skill_id  = skill_map.get(raw_skill, "web-search")
 
-            twitter_kws = any(w in goal.lower() for w in ["twitter", "tweet", "x.com", "@"])
+            twitter_kws = any(w in goal.lower() for w in ["twitter", "tweet", "x.com"])
             if twitter_kws:
                 skill_id = "web-search"
 
@@ -166,20 +170,26 @@ def _keyword_classify(goal: str, t0: float) -> dict:
     """Fast keyword-based fallback — mirrors the Laya questions."""
     g = goal.lower()
 
-    wants_file    = any(w in g for w in ["save", "create file", "report", "write to", "document", "markdown"])
-    wants_post    = any(w in g for w in ["post", "tweet", "publish", "share on twitter", "share on linkedin"])
-    wants_read    = any(w in g for w in ["read", "open page", "visit", "browse", "extract from url"])
-    wants_summary = any(w in g for w in ["summarize", "summary", "explain", "key points", "tldr"])
-    wants_youtube = any(w in g for w in ["youtube", "video", "watch", "tutorial", "lecture", "transcript"])
-    wants_twitter = any(w in g for w in ["twitter", "tweet", "x.com", "trending"])
-    wants_jobs    = any(w in g for w in ["job", "interview", "career", "hiring", "position", "vacancy"])
-    wants_papers  = any(w in g for w in ["paper", "research", "arxiv", "publication", "study", "journal"])
-    wants_skill   = any(w in g for w in ["create skill", "new skill", "build skill", "skill.md"])
+    wants_file      = any(w in g for w in ["save", "create file", "report", "write to", "document", "markdown", "pdf"])
+    wants_post      = any(w in g for w in ["post", "tweet", "publish", "share on twitter", "share on linkedin"])
+    wants_read      = any(w in g for w in ["read", "open page", "visit", "browse", "extract from url"])
+    wants_summary   = any(w in g for w in ["summarize", "summary", "explain", "key points", "tldr"])
+    wants_youtube   = any(w in g for w in ["youtube", "video", "watch", "tutorial", "lecture", "transcript"])
+    wants_twitter   = any(w in g for w in ["twitter", "tweet", "x.com", "trending"])
+    wants_github    = any(w in g for w in ["github", "repository", "open source", "repo", "public repositories"])
+    wants_interview = any(w in g for w in ["interview question", "interview process", "interview round", "company background", "interview experience", "fresher", "suggested answer", "preparation advice", "rounds"])
+    wants_jobs      = any(w in g for w in ["job", "career", "hiring", "position", "vacancy"]) and not wants_interview
+    wants_papers    = any(w in g for w in ["paper", "research", "arxiv", "publication", "study", "journal"])
+    wants_skill     = any(w in g for w in ["create skill", "new skill", "build skill", "skill.md"])
 
     if wants_youtube:
         skill = "youtube-search"
     elif wants_twitter:
         skill = "web-search"
+    elif wants_github:
+        skill = "github-research"
+    elif wants_interview:
+        skill = "interview-research"
     elif wants_jobs:
         skill = "job-search"
     elif wants_papers:
@@ -194,15 +204,18 @@ def _keyword_classify(goal: str, t0: float) -> dict:
     risk = "high" if wants_post else ("medium" if wants_file else "low")
 
     return {
-        "skill":         skill,
-        "wants_file":    wants_file,
-        "wants_post":    wants_post,
-        "wants_read":    wants_read,
-        "wants_summary": wants_summary,
-        "risk":          risk,
-        "confidence":    1.0,
-        "source":        "keyword-fallback",
-        "duration_ms":   int((time.time() - t0) * 1000),
+        "skill":           skill,
+        "wants_file":      wants_file,
+        "wants_post":      wants_post,
+        "wants_read":      wants_read,
+        "wants_summary":   wants_summary,
+        "wants_twitter":   wants_twitter,
+        "wants_youtube":   wants_youtube,
+        "wants_interview": wants_interview,
+        "risk":            risk,
+        "confidence":      1.0,
+        "source":          "keyword-fallback",
+        "duration_ms":     int((time.time() - t0) * 1000),
     }
 
 

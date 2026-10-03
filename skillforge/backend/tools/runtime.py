@@ -83,7 +83,8 @@ def _live_web_search(query: str, num_results: int = 5) -> list[dict]:
     try:
         from tools.agent_reach import reach_web_search
         reach_res = reach_web_search(query, num_results=num_results)
-        valid = [r for r in reach_res if isinstance(r, dict) and r.get("url") and not r.get("error")]
+        results = reach_res.get("results", []) if isinstance(reach_res, dict) else reach_res
+        valid = [r for r in results if isinstance(r, dict) and r.get("url") and not r.get("error")]
         if valid:
             return valid
     except Exception:
@@ -137,14 +138,14 @@ def job_search(query: str, location: str = "Remote", num_results: int = 5) -> di
             job_url = f"https://www.google.com/search?q={urllib.parse.quote_plus(title + ' ' + company + ' jobs')}"
 
         jobs.append({
-            "title": title or "Data Science Position",
-            "company": company or "Featured Employer",
+            "title": title or "Position",
+            "company": company or "Direct Listing",
             "location": location or "Remote",
             "url": job_url,
             "snippet": r.get("snippet", "")
         })
 
-    if not jobs:
+    if not jobs and DEMO_MODE:
         jobs = [dict(j) for j in DEMO_JOB_RESULTS[:num_results]]
 
     return {
@@ -157,8 +158,12 @@ def job_search(query: str, location: str = "Remote", num_results: int = 5) -> di
 
 
 def youtube_search(query: str, num_results: int = 5) -> dict:
-    from tools.scraper import youtube_search_ddg
-    return youtube_search_ddg(query, num_results)
+    """
+    Search and scrape YouTube videos using YouTube-Scapper approach.
+    Supports search queries and direct video URLs.
+    """
+    from tools.youtube_scraper import youtube_scrape_or_search
+    return youtube_scrape_or_search(query, num_results)
 
 
 def webpage_reader(url: str, max_chars: int = 3000) -> dict:

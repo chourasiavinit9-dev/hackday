@@ -736,3 +736,146 @@
 .skill-result a:hover { text-decoration: underline; color: #c85391; }
 .skill-result .snippet { margin: 4px 0 0; color: #69636d; font-size: 13px; line-height: 1.45; }
 .skill-error { color: #a52f2f !important; font-weight: 600; }
+
+/* ── PDF Export & Print Stylesheet ─────────────────────────────────────────── */
+@media print {
+  @page {
+    margin: 1.5cm;
+    size: A4 portrait;
+  }
+
+  /* Reset layout and hide non-report chrome */
+  html, body {
+    background: #ffffff !important;
+    color: #111111 !important;
+    font-size: 11pt !important;
+    line-height: 1.6 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  .app-sidebar,
+  .app-header,
+  .page-heading,
+  .command-card,
+  .skills-panel,
+  .content-grid,
+  .page-footer,
+  .modal-backdrop,
+  .result-nav-tabs,
+  .result-badge,
+  .live-dot,
+  .ghost-button,
+  .primary-button,
+  .run-button,
+  #copyReportBtn,
+  #closeResult,
+  #exportPdfBtn,
+  #cancelWorkflowBtn {
+    display: none !important;
+  }
+
+  .app-main {
+    padding: 0 !important;
+    margin: 0 !important;
+    max-width: 100% !important;
+  }
+
+  .result-panel {
+    display: block !important;
+    border: none !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    background: #ffffff !important;
+  }
+
+  .panel-heading {
+    border-bottom: 2pt solid #222222 !important;
+    padding-bottom: 12pt !important;
+    margin-bottom: 16pt !important;
+  }
+
+  .panel-heading h2 {
+    font-size: 18pt !important;
+    color: #000000 !important;
+    margin: 4pt 0 0 !important;
+  }
+
+  .section-kicker {
+    font-size: 9pt !important;
+    letter-spacing: 0.08em !important;
+    color: #555555 !important;
+  }
+
+  .report-markdown {
+    color: #111111 !important;
+  }
+
+  .report-markdown h1 {
+    font-size: 16pt !important;
+    border-bottom: 1pt solid #dddddd;
+    padding-bottom: 4pt;
+    margin-top: 16pt;
+    break-after: avoid;
+  }
+
+  .report-markdown h2 {
+    font-size: 13pt !important;
+    color: #111111 !important;
+    margin-top: 14pt;
+    break-after: avoid;
+  }
+
+  .report-markdown h3 {
+    font-size: 11.5pt !important;
+    color: #222222 !important;
+    margin-top: 10pt;
+    break-after: avoid;
+  }
+
+  .report-markdown a {
+    color: #004499 !important;
+    text-decoration: underline !important;
+  }
+
+  /* Display destination URLs in printed output for complete provenance */
+  .report-markdown a[href^="http"]::after {
+    content: " (" attr(href) ")";
+    font-size: 8.5pt !important;
+    color: #555555 !important;
+    word-break: break-all;
+  }
+
+  .report-markdown blockquote {
+    border-left: 3pt solid #888888 !important;
+    padding-left: 10pt !important;
+    margin-left: 0 !important;
+    background: #f7f7f7 !important;
+    color: #222222 !important;
+    break-inside: avoid;
+  }
+
+  .tweet-card,
+  .video-card,
+  .web-card,
+  .job-card,
+  .question-category-block {
+    border: 1pt solid #cccccc !important;
+    box-shadow: none !important;
+    background: #ffffff !important;
+    break-inside: avoid;
+    margin-bottom: 12pt !important;
+    padding: 10pt !important;
+  }
+
+  .tweet-handle-link[href^="http"]::after,
+  .tweet-view-btn[href^="http"]::after,
+  .video-watch-btn[href^="http"]::after,
+  .web-visit-btn[href^="http"]::after,
+  .job-title-link[href^="http"]::after {
+    content: " (" attr(href) ")";
+    font-size: 8pt;
+    color: #666;
+  }
+}

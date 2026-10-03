@@ -49,11 +49,11 @@
 
         <section class="command-card" id="commandCard">
           <div class="card-topline"><span class="command-label"><span class="sparkle">✦</span> What do you want to automate?</span><span class="shortcut">⌘ ↵ to run</span></div>
-          <textarea id="goalInput" aria-label="Automation goal">Find five Python data science jobs, extract the interview questions mentioned in the listings, group them by topic, and create a preparation report.</textarea>
+          <textarea id="goalInput" aria-label="Automation goal">Find TCS interview questions from last year for fresher software engineers, with suggested answers, process breakdown, and source links.</textarea>
           <div class="command-footer">
             <div class="attached-skills">
               <span class="muted-label">Skills selected</span>
-              <span class="tag pink-tag">⌁ job-search</span>
+              <span class="tag pink-tag">⌁ interview-research</span>
               <span class="tag blue-tag">◌ webpage-reader</span>
               <span class="tag green-tag">⌗ file-creator</span>
               <span class="tag" style="background:#fce0e0;color:#d83c3c;">▶️ youtube-scraper</span>
@@ -74,13 +74,13 @@
               <span class="section-kicker">DIRECT RUNNER <span class="live-dot" style="background:#c85391"></span></span>
               <h2>Choose a skill</h2>
             </div>
-            <span class="verified-badge" style="background:#fbf2f7;color:#69425b;border-color:#eadde5">4 ACTIVE SKILLS</span>
+            <span class="verified-badge" style="background:#fbf2f7;color:#69425b;border-color:#eadde5">5 ACTIVE SKILLS</span>
           </div>
-          <p class="skills-help">Enter a topic or URL, then click a skill to run it directly.</p>
+          <p class="skills-help">Enter a topic or URL, then click a skill to run real work immediately.</p>
 
           <textarea
             id="skill-input"
-            placeholder="Enter a topic to search, a webpage URL to read, or a YouTube topic…"
+            placeholder="Enter an interview topic, company name (e.g. TCS, Wipro), webpage URL, YouTube topic, or GitHub repo…"
           ></textarea>
 
           <div class="skill-buttons">
@@ -88,6 +88,7 @@
             <button type="button" data-skill="webpage_reader">◉ Read webpage</button>
             <button type="button" data-skill="youtube_search">▶ YouTube search</button>
             <button type="button" data-skill="twitter_search">𝕏 Twitter search</button>
+            <button type="button" data-skill="github_research">⌥ GitHub research</button>
           </div>
 
           <p id="skill-status" role="status"></p>
@@ -113,6 +114,7 @@
             </div>
             <div style="display:flex;align-items:center;gap:8px">
               <span class="result-badge" id="resultCountBadge">0 Findings</span>
+              <button class="ghost-button" id="exportPdfBtn" style="font-size:11px;padding:6px 12px;background:#fff8fa;border-color:#f2c5d9;color:#b23570" title="Export completed research report to PDF">📄 Export as PDF</button>
               <button class="ghost-button" id="copyReportBtn" style="font-size:11px;padding:6px 12px" title="Copy report markdown to clipboard">📋 Copy Report</button>
               <button class="ghost-button" id="closeResult" style="font-size:11px;padding:6px 12px">✕ Dismiss</button>
             </div>

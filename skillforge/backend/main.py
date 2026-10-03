@@ -421,6 +421,25 @@ async def run_single_skill(req: SkillRunRequest):
                 ]
             }
 
+        elif skill_id in ("github_research", "github_search", "reach_github_search"):
+            import urllib.parse
+            from tools.agent_reach import reach_github_search
+            raw = reach_github_search(user_input, num_results=6)
+            results = raw.get("results", [])
+            ledger.append("skills-runner", "github-research", "reach_github_search", {"query": user_input}, {"count": len(results)})
+            return {
+                "title": f"GitHub Repositories for '{user_input}'",
+                "summary": f"Found {len(results)} public repositories/issues via Agent-Reach.",
+                "results": [
+                    {
+                        "title": r.get("title") or "GitHub Repository",
+                        "url": r.get("url") or f"https://github.com/search?q={urllib.parse.quote_plus(user_input)}",
+                        "snippet": r.get("snippet") or ""
+                    }
+                    for r in results
+                ]
+            }
+
         else:
             from tools.runtime import run_tool
             res = run_tool(skill_id, {"query": user_input})

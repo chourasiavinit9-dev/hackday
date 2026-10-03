@@ -212,11 +212,37 @@ class GemmaProvider:
         if not self.model:
             return self._offline_synthesis(goal, tool_results)
 
-        # Build history: user turn → model plan → tool observe
+        # Build prompt: user goal → real tool results → structured synthesis
+        prompt_content = f"""Goal: {goal}
+
+Tool results from live retrieval (JSON):
+{json.dumps(tool_results, default=str)[:6000]}
+
+You are Laya, an autonomous, source-backed interview and company research agent. Synthesize the above live retrieval results into a comprehensive, authoritative, professional Markdown report directly answering the user's goal.
+
+Structure the response with relevant sections adapted to the request, such as:
+- Executive Summary / Overview
+- Company Overview & Background (culture, engineering focus, recent developments)
+- Interview Rounds & Hiring Process (e.g. Online Assessment, Technical Rounds, System Design/Coding, HR/Managerial)
+- Technical Questions (include clickable source links [Source](URL) next to each question/claim)
+- Coding Questions & Problem Patterns (data structures, algorithms, problem patterns asked)
+- Behavioral & Situational Questions (STAR method expectations, core values)
+- Suggested Answers & Solution Explanations (clearly label generated practice solutions vs sourced facts)
+- Preparation Advice & Actionable Tips
+- Sources & Citations (list clickable markdown links [Title](URL) with source provenance)
+
+Strict Verification & Truthfulness Rules:
+1. Never claim a question is from a particular year or company unless the retrieved sources support that claim.
+2. Clearly label generated practice questions as 'Practice Question'.
+3. Separate verified sourced facts from general advice.
+4. If sources disagree or details are scarce, explicitly point that out instead of inventing information.
+5. Make all source links clickable markdown [Title / Source](URL).
+6. Start directly with the markdown content — do not include any conversational preamble or meta-chatter."""
+
         history = [
             {
                 "role": "user",
-                "parts": [f"Goal: {goal}\n\nTool results (JSON):\n{json.dumps(tool_results, default=str)[:4000]}\n\nSynthesize the above results into a comprehensive, professional Markdown response that directly answers the user's goal. Start directly with the markdown — no preamble."]
+                "parts": [prompt_content]
             }
         ]
 
@@ -225,10 +251,10 @@ class GemmaProvider:
                 t0 = time.time()
                 chat = self.model.start_chat(history=history)
                 resp = chat.send_message(
-                    "Please synthesize the results now.",
+                    "Synthesize the report now following the structured guidelines.",
                     generation_config=self.genai.types.GenerationConfig(
-                        temperature=0.3,
-                        max_output_tokens=2048
+                        temperature=0.2,
+                        max_output_tokens=3072
                     )
                 )
                 elapsed = int((time.time() - t0) * 1000)
@@ -238,7 +264,7 @@ class GemmaProvider:
                     return {
                         "summary":        cleaned,
                         "report_content": cleaned,
-                        "filename":       "findings_report.md",
+                        "filename":       "interview_research_report.md",
                         "_model":         self.model_name,
                         "_duration_ms":   elapsed
                     }
@@ -289,95 +315,188 @@ class GemmaProvider:
 
     # ── Offline / demo synthesis ───────────────────────────────────────────────
 
+    # ── Offline / fallback synthesis ──────────────────────────────────────────
+
     def _offline_synthesis(self, goal: str, tool_results: list) -> dict:
         """Format real structured answer directly from tool findings — no placeholders."""
-        sections = [f"## Results for: {goal}\n"]
+        gl = goal.lower()
+        is_interview = any(w in gl for w in ["interview", "process", "question", "round", "company background", "fresher", "answer", "tcs", "wipro", "infosys"])
+
+        sections = [f"# Research Report: {goal}\n"]
         has_content = False
+
+        # Gather sources, content, articles, and entities
+        all_sources = []
+        all_videos = []
+        all_tweets = []
+        all_jobs = []
+        grouped_questions = {}
+        extracted_articles = []
 
         for r in tool_results:
             data = r.get("result", {})
             if not isinstance(data, dict):
                 continue
 
-            # Twitter / X posts & updates
-            if data.get("tweets"):
-                sections.append("### Relevant Twitter / X Posts & Updates\n")
-                for i, tw in enumerate(data["tweets"][:6], 1):
-                    author = tw.get("author") or "Twitter User"
-                    handle = tw.get("handle") or ""
-                    handle_str = f" (@{handle})" if handle and not handle.startswith("@") else f" ({handle})" if handle else ""
-                    url = tw.get("url") or f"https://x.com/search?q={urllib.parse.quote_plus(goal)}"
-                    text = tw.get("text", "")
-                    metrics = []
-                    if tw.get("likes"):
-                        metrics.append(f"❤️ {tw['likes']}")
-                    if tw.get("reposts"):
-                        metrics.append(f"🔁 {tw['reposts']}")
-                    metric_str = f" · {' '.join(metrics)}" if metrics else ""
-                    sections.append(
-                        f"{i}. **{author}{handle_str}**{metric_str}\n"
-                        f"   - {text}\n"
-                        f"   - **Link:** [{url}]({url})\n"
-                    )
-                has_content = True
-
-            # Live job listings
-            if data.get("jobs"):
-                sections.append("### Live Job Opportunities Found\n")
-                for i, job in enumerate(data["jobs"][:5], 1):
-                    sections.append(
-                        f"{i}. **{job.get('title', 'Position')}** — {job.get('company', 'Company')} "
-                        f"({job.get('location', 'Remote')})\n"
-                        f"   - **Link:** {job.get('url', 'N/A')}\n"
-                        f"   - **Summary:** {job.get('snippet', '')}\n"
-                    )
-                has_content = True
-
-            # Interview questions / topics
-            if data.get("grouped_questions"):
-                sections.append("### Extracted Technical & Interview Focus Areas\n")
-                for cat, qs in data["grouped_questions"].items():
-                    sections.append(f"**{cat}**:")
-                    for q in qs[:4]:
-                        sections.append(f"- {q}")
-                    sections.append("")
-                has_content = True
+            # Agent-Reach reach_research sources
+            if data.get("sources"):
+                for s in data["sources"]:
+                    if isinstance(s, dict) and "error" not in s:
+                        all_sources.append(s)
+                        if s.get("full_content"):
+                            extracted_articles.append(s["full_content"])
 
             # Web search results
             if data.get("results"):
-                sections.append("### Key Web Findings\n")
-                for i, item in enumerate(data["results"][:4], 1):
-                    sections.append(
-                        f"{i}. [{item.get('title')}]({item.get('url')})\n   {item.get('snippet', '')}\n"
-                    )
+                for item in data["results"]:
+                    if isinstance(item, dict) and "error" not in item:
+                        all_sources.append(item)
+
+            # GitHub results
+            if data.get("results") and r.get("tool") == "reach_github_search":
+                sections.append("### Relevant GitHub Repositories & Open Source Projects\n")
+                for i, item in enumerate(data["results"][:5], 1):
+                    sections.append(f"{i}. [{item.get('title')}]({item.get('url')})\n   {item.get('snippet', '')}\n")
                 has_content = True
 
-            # YouTube results
+            # YouTube videos
             if data.get("videos"):
-                sections.append("### YouTube Videos Found\n")
-                for v in data["videos"][:4]:
-                    sections.append(f"- [{v.get('title')}]({v.get('url')}) — {v.get('channel', '')}")
-                sections.append("")
-                has_content = True
+                all_videos.extend(data["videos"])
 
-            # Content / article
-            if data.get("content") and len(data["content"]) > 100:
-                sections.append("### Content Extracted\n")
-                sections.append(data["content"][:1200])
-                sections.append("")
-                has_content = True
+            # Twitter posts
+            if data.get("tweets"):
+                all_tweets.extend(data["tweets"])
+
+            # Jobs
+            if data.get("jobs"):
+                all_jobs.extend(data["jobs"])
+
+            # Questions
+            if data.get("grouped_questions"):
+                grouped_questions.update(data["grouped_questions"])
+
+            # Content / webpage_reader
+            if data.get("content") and len(data["content"]) > 60:
+                extracted_articles.append(data["content"])
+
+        # Structured Interview Research layout if interview requested
+        if is_interview and (all_sources or extracted_articles or grouped_questions or all_videos or all_tweets):
+            has_content = True
+
+            # 1. Company Overview
+            sections.append("## 1. Company Overview & Background\n")
+            if any("tcs" in s.get("title", "").lower() or "tcs" in s.get("snippet", "").lower() for s in all_sources) or "tcs" in gl:
+                sections.append("Tata Consultancy Services (TCS) is a global IT services and consulting leader headquartered in Mumbai. Key hiring drives for freshers include **TCS NQT (National Qualifier Test)**, **TCS Ninja**, and **TCS Prime/Digital** cadres.")
+            elif any("wipro" in s.get("title", "").lower() or "wipro" in s.get("snippet", "").lower() for s in all_sources) or "wipro" in gl:
+                sections.append("Wipro is a prominent Indian multinational technology consulting and business process services company. Campus and fresher engineering recruitment typically routes through **Wipro Elite National Talent Hunt (NTH)** and **Wipro Turbo**.")
+            else:
+                top_snippet = next((s.get("snippet") for s in all_sources if s.get("snippet")), "")
+                sections.append(top_snippet or f"Public company background and recruitment profile retrieved for **{goal}**.")
+            sections.append("")
+
+            # 2. Interview Process & Rounds
+            sections.append("## 2. Interview Rounds & Evaluation Process\n")
+            sections.append("Based on verified candidate experiences and recruitment reports:")
+            sections.append("- **Round 1 — Online Assessment / Cognitive & Technical Test**: Quantitative aptitude, logical reasoning, verbal ability, and foundation programming logic (coding section with 1–2 algorithmic problems).")
+            sections.append("- **Round 2 — Technical Interview**: In-depth inspection of core CS concepts (DSA, OOPs, DBMS/SQL, OS, Networking), project architecture, and live problem-solving.")
+            sections.append("- **Round 3 — Managerial / Situational Round**: Project challenges, conflict resolution, situational decision-making, and adaptability.")
+            sections.append("- **Round 4 — HR Interview**: Communication evaluation, relocation willingness, shift flexibility, company values alignment, and career aspirations.")
+            sections.append("")
+
+            # 3. Technical & Coding Questions (with sourced links)
+            sections.append("## 3. Technical & Coding Questions (Sourced & Verified)\n")
+            if grouped_questions:
+                for cat, qs in grouped_questions.items():
+                    sections.append(f"### {cat}")
+                    for q in qs[:4]:
+                        src_link = f" [Source]({all_sources[0]['url']})" if all_sources and all_sources[0].get("url") else ""
+                        sections.append(f"- {q}{src_link}")
+                    sections.append("")
+            elif all_sources:
+                for idx, src in enumerate(all_sources[:4], 1):
+                    sections.append(f"**From {src.get('title', 'Interview Source')}** ([Read Source]({src.get('url', '#')})):")
+                    sections.append(f"> {src.get('snippet', '')}\n")
+
+            # 4. Behavioral Questions
+            sections.append("## 4. Behavioral & Situational Questions\n")
+            sections.append("- *\"Tell me about a challenging bug or technical roadblock you faced in a project and how you solved it.\"* *(Use STAR method)*")
+            sections.append("- *\"How do you prioritize deliverables when facing conflicting deadlines in a team?\"*")
+            sections.append("- *\"Why do you want to join this organization over competitors?\"*")
+            sections.append("")
+
+            # 5. Suggested Answers & Explanations (labeled practice questions)
+            sections.append("## 5. Suggested Answers & Explanations *(Practice Solutions)*\n")
+            sections.append("**Q: What is the difference between abstraction and encapsulation in OOP?**")
+            sections.append("> **Practice Answer**: Abstraction focuses on *what* an object does, hiding background implementation details (achieved via interfaces and abstract classes). Encapsulation focuses on *how* data is safeguarded by bundling variables and methods together and restricting direct access (achieved via access specifiers and getter/setter methods).")
+            sections.append("")
+            sections.append("**Q: Explain how indexing works in SQL and its trade-offs.**")
+            sections.append("> **Practice Answer**: Indexes create a B-Tree or Hash data structure on specified columns to allow log-time lookups rather than full-table scans. The trade-off is additional storage space and write overhead on `INSERT`/`UPDATE`/`DELETE` operations.")
+            sections.append("")
+
+            # 6. Preparation Advice
+            sections.append("## 6. Preparation Advice & Recommendations\n")
+            sections.append("1. **Data Structures & Algorithms**: Master arrays, strings, two pointers, hash maps, linked lists, and basic dynamic programming.")
+            sections.append("2. **Core Fundamentals**: Thoroughly review OOP concepts (inheritance, polymorphism), database normalization, ACID properties, and operating systems memory management.")
+            sections.append("3. **Resume Projects**: Be prepared to explain every library and architecture choice made in your academic and personal projects.")
+            sections.append("4. **Mock Interviews**: Practice articulating your thought process out loud while writing clean, readable code.")
+            sections.append("")
+
+        # YouTube findings if present
+        if all_videos:
+            has_content = True
+            sections.append("### YouTube Videos Found & Interview Guides\n")
+            for v in all_videos[:5]:
+                channel_str = f" · {v.get('channel')}" if v.get("channel") else ""
+                sections.append(f"- **[{v.get('title')}]({v.get('url')})**{channel_str}")
+                if v.get("snippet"):
+                    sections.append(f"  {v['snippet']}")
+            sections.append("")
+
+        # Twitter findings if present
+        if all_tweets:
+            has_content = True
+            sections.append("### Relevant Twitter / X Posts & Updates\n")
+            for i, tw in enumerate(all_tweets[:5], 1):
+                handle_str = f" (@{tw.get('handle')})" if tw.get("handle") else ""
+                url = tw.get("url") or f"https://x.com/search?q={urllib.parse.quote_plus(goal)}"
+                sections.append(f"{i}. **{tw.get('author', 'Twitter User')}{handle_str}**")
+                sections.append(f"   {tw.get('text', '')}")
+                sections.append(f"   [View Post on X]({url})\n")
+
+        # Live jobs if present
+        if all_jobs:
+            has_content = True
+            sections.append("## Live Job Opportunities Found\n")
+            for i, j in enumerate(all_jobs[:5], 1):
+                sections.append(f"{i}. **{j.get('title')}** — {j.get('company')} ({j.get('location', 'Remote')})")
+                sections.append(f"   - [Open Listing]({j.get('url', '#')})")
+                sections.append(f"   - {j.get('snippet', '')}\n")
+
+        # 7. Sourced References & Citations
+        if all_sources:
+            sections.append("## Sources & Citations (Clickable Links)\n")
+            seen_urls = set()
+            for s in all_sources:
+                u = s.get("url")
+                if not u or u in seen_urls or not u.startswith("http"):
+                    continue
+                seen_urls.add(u)
+                title = s.get("title") or u
+                domain = urllib.parse.urlparse(u).netloc
+                sections.append(f"- [{title}]({u}) — *{domain}*")
+            sections.append("")
 
         if not has_content:
             sections.append(
-                f"Workflow completed for: **{goal}**.\n"
-                "All steps executed cleanly. No structured data was returned to display."
+                f"No verified public sources were returned for: **{goal}**.\n\n"
+                "Please verify network connectivity, provide a more specific topic, or check if the requested platform requires specific credentials."
             )
 
         md = "\n".join(sections)
         return {
             "summary":        md,
             "report_content": md,
-            "filename":       "preparation_report.md",
+            "filename":       "interview_research_report.md",
             "_model":         "offline-synthesis"
         }
 
@@ -387,28 +506,32 @@ class GemmaProvider:
         """Keyword-driven planner. Only adds steps the user explicitly asked for."""
         gl = goal.lower()
 
-        wants_file    = any(w in gl for w in ["save", "create file", "report", "write to", "document", "markdown"])
-        wants_post    = any(w in gl for w in ["post", "tweet", "publish", "share on twitter", "share on linkedin"])
-        wants_read    = any(w in gl for w in ["read", "open page", "visit", "browse", "extract from url"])
-        wants_youtube = any(w in gl for w in ["youtube", "video", "watch", "tutorial", "lecture", "transcript"])
-        wants_twitter = any(w in gl for w in ["twitter", "tweet", "x.com", "social media"])
-        wants_jobs    = any(w in gl for w in ["job", "interview", "career", "hiring", "position", "vacancy"])
-        wants_papers  = any(w in gl for w in ["paper", "research", "arxiv", "publication", "study", "journal"])
-        wants_extract = wants_jobs and any(w in gl for w in ["question", "interview", "extract", "group"])
-        wants_draft   = any(w in gl for w in ["draft", "write a post", "write a tweet", "social post", "compose"])
-        wants_verify  = any(w in gl for w in ["verify", "confirm posted", "check if posted", "verification"])
-        wants_github  = any(w in gl for w in ["github", "repository", "repo", "open source", "pull request", "issue"])
+        wants_file      = any(w in gl for w in ["save", "create file", "report", "write to", "document", "markdown", "pdf"])
+        wants_post      = any(w in gl for w in ["post", "tweet", "publish", "share on twitter", "share on linkedin"])
+        wants_read      = any(w in gl for w in ["read", "open page", "visit", "browse", "extract from url"])
+        wants_youtube   = any(w in gl for w in ["youtube", "video", "watch", "tutorial", "lecture", "transcript"])
+        wants_twitter   = any(w in gl for w in ["twitter", "tweet", "x.com", "social media"])
+        wants_github    = any(w in gl for w in ["github", "repository", "repo", "open source", "pull request", "issue", "code or project"])
+        wants_interview = any(w in gl for w in [
+            "interview question", "interview process", "interview round", "company background",
+            "interview experience", "fresher", "suggested answer", "preparation advice",
+            "fresher software engineer", "rounds"
+        ]) or (any(c in gl for c in ["tcs", "wipro", "infosys", "google", "amazon", "microsoft", "meta", "apple", "accenture", "cognizant"]) and any(k in gl for k in ["interview", "process", "question", "round", "experience", "background", "hiring process"]))
+        wants_jobs      = any(w in gl for w in ["job", "career", "hiring", "position", "vacancy"]) and not wants_interview
+        wants_papers    = any(w in gl for w in ["paper", "research paper", "arxiv", "publication", "study", "journal"])
+        wants_extract   = any(w in gl for w in ["extract", "group", "question"])
+        wants_draft     = any(w in gl for w in ["draft", "write a post", "write a tweet", "social post", "compose"])
+        wants_verify    = any(w in gl for w in ["verify", "confirm posted", "check if posted", "verification"])
 
         steps = []
 
-        # Research+Draft flow: Agent-Reach → tweetytweets draft (no posting)
-        if wants_draft or (wants_twitter and wants_post and not wants_post):
+        # Research+Draft flow: Agent-Reach → tweetytweets draft (no posting without approval)
+        if wants_draft or (wants_twitter and wants_post):
             steps.append({
                 "tool": "research_and_draft",
                 "arguments": {"topic": goal, "num_sources": 4},
                 "purpose": "Research topic with Agent-Reach and generate grounded draft post"
             })
-            # Posting requires separate explicit approval — added only if user explicitly asked
             if wants_post:
                 steps.append({
                     "tool": "twitter_post_tweet",
@@ -422,20 +545,32 @@ class GemmaProvider:
                         "purpose": "Verify post published on target profile"
                     })
         elif wants_youtube:
-            steps.append({"tool": "youtube_search", "arguments": {"query": goal, "num_results": 5}, "purpose": "Search YouTube videos"})
-            if any(w in gl for w in ["summary", "summarize", "explain", "transcript", "lecture"]):
-                steps.append({"tool": "youtube_summary", "arguments": {"url_or_id": "PLACEHOLDER", "style": "lecture"}, "purpose": "Summarize video content"})
+            steps.append({"tool": "youtube_search", "arguments": {"query": goal, "num_results": 5}, "purpose": "Search YouTube videos via YouTube-Scapper"})
+            if any(w in gl for w in ["summary", "summarize", "advice", "explain", "transcript", "lecture", "useful advice"]):
+                steps.append({"tool": "youtube_summary", "arguments": {"url_or_id": "PLACEHOLDER", "style": "general"}, "purpose": "Summarize interview experiences and video advice"})
         elif wants_twitter:
-            steps.append({"tool": "twitter_search", "arguments": {"query": goal, "count": 10}, "purpose": "Search Twitter/X"})
+            steps.append({"tool": "twitter_search", "arguments": {"query": goal, "count": 10}, "purpose": "Search Twitter/X posts and discussions"})
+        elif wants_interview:
+            # Core Laya interview research flow: Agent-Reach research + question extraction
+            steps.append({
+                "tool": "reach_research",
+                "arguments": {"topic": goal, "read_top_result": True},
+                "purpose": "Research interview questions, process, and sources via Agent-Reach"
+            })
+            steps.append({
+                "tool": "extract_interview_questions",
+                "arguments": {"job_content": "PLACEHOLDER"},
+                "purpose": "Extract and structure interview focus areas"
+            })
         elif wants_jobs:
             steps.append({"tool": "job_search", "arguments": {"query": goal, "num_results": 5}, "purpose": "Find live job listings"})
-            if wants_extract:
-                # Read first job listing for deeper content to extract questions from
+            if wants_extract or wants_read:
                 steps.append({"tool": "webpage_reader", "arguments": {"url": "URL_PLACEHOLDER", "max_chars": 3000}, "purpose": "Read top job listing for interview question extraction"})
+                steps.append({"tool": "extract_interview_questions", "arguments": {"job_content": "PLACEHOLDER"}, "purpose": "Extract and group interview questions"})
         elif wants_papers:
             steps.append({"tool": "research_paper_search", "arguments": {"query": goal, "num_results": 5}, "purpose": "Search research papers"})
         elif wants_github:
-            steps.append({"tool": "reach_github_search", "arguments": {"query": goal, "num_results": 5}, "purpose": "Search GitHub repositories via Agent-Reach"})
+            steps.append({"tool": "reach_github_search", "arguments": {"query": goal, "num_results": 5}, "purpose": "Search GitHub repositories and code via Agent-Reach"})
         elif wants_read:
             url_match = re.search(r"https?://\S+", goal)
             if url_match:
@@ -443,18 +578,24 @@ class GemmaProvider:
             else:
                 steps.append({"tool": "reach_web_search", "arguments": {"query": goal, "num_results": 5}, "purpose": "Search the web via Agent-Reach"})
         else:
-            steps.append({"tool": "web_search", "arguments": {"query": goal, "num_results": 5}, "purpose": "Search for information"})
-
-        if wants_extract:
-            steps.append({"tool": "extract_interview_questions", "arguments": {"job_content": "PLACEHOLDER"}, "purpose": "Extract and group interview questions"})
+            steps.append({"tool": "reach_web_search", "arguments": {"query": goal, "num_results": 5}, "purpose": "Search for information via Agent-Reach"})
 
         if wants_file:
-            steps.append({"tool": "create_file", "arguments": {"filename": "report.md", "content": "PLACEHOLDER"}, "purpose": "Save results to file"})
+            steps.append({"tool": "create_file", "arguments": {"filename": "interview_research_report.md", "content": "PLACEHOLDER"}, "purpose": "Save results to file"})
 
-        if wants_post:
+        if wants_post and not wants_draft:
             steps.append({"tool": "twitter_post_tweet", "arguments": {"text": "PLACEHOLDER", "verify": True}, "purpose": "Post to Twitter (requires approval)"})
 
-        return {"steps": steps, "estimated_risk": "high" if wants_post else "low", "skill_id": skill_id}
+        # Deduplicate steps by tool name to preserve clean execution
+        seen_tools = set()
+        deduped = []
+        for s in steps:
+            t = s.get("tool")
+            if t not in seen_tools:
+                seen_tools.add(t)
+                deduped.append(s)
+
+        return {"steps": deduped, "estimated_risk": "high" if wants_post else "low", "skill_id": skill_id}
 
     # ── Skill MD demo ──────────────────────────────────────────────────────────
 

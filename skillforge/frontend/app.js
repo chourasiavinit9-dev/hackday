@@ -285,27 +285,9 @@ function handleWorkflowEvent(event) {
     }
   }
 
-  // Handle approvals
+  // Handle approvals — always require explicit user review & approval before any external post
   if (type === 'approval_required' && approval) {
     currentApprovalId = approval.id;
-    const settings = getSettings();
-    const isTwitterAction = (approval.tool_name || '').includes('twitter') || (approval.tool_name || '').includes('tweet');
-    if (isTwitterAction && settings.twitterConnected && settings.twitterAutoPost) {
-      // Auto-approve automatically!
-      fetch(`${API_BASE}/api/approve`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ approval_id: approval.id, approved: true })
-      }).catch(() => {});
-
-      if (timeline) {
-        const item = document.createElement('div');
-        item.className = 'timeline-item done';
-        item.innerHTML = `<span class="timeline-marker">✓</span><div><b>Twitter automated post</b><small>Auto-approved for connected ${settings.twitterHandle}</small></div>`;
-        timeline.prepend(item);
-      }
-      return;
-    }
     setModal(true, approval);
   }
 
@@ -1377,6 +1359,29 @@ if (copyReportBtn) {
   });
 }
 
+// Export as PDF button
+const exportPdfBtn = $('#exportPdfBtn');
+if (exportPdfBtn) {
+  exportPdfBtn.addEventListener('click', () => {
+    const reportText = activeResultData.report || '';
+    if (!reportText && (!activeResultData.jobs.length && !activeResultData.tweets.length && !activeResultData.videos.length && !activeResultData.web_results.length)) {
+      alert('No completed research results available to export yet. Please run an interview research request first.');
+      return;
+    }
+    // Switch to Full Report tab to ensure complete content is printed
+    activeResultData.activeTab = 'report';
+    updateResultBody();
+
+    const origTitle = document.title;
+    const goal = ($('#goalInput')?.value || 'Interview Research Report').slice(0, 45).replace(/[^a-zA-Z0-9_-]/g, '_');
+    document.title = `Laya - ${goal}`;
+    window.print();
+    setTimeout(() => {
+      document.title = origTitle;
+    }, 1200);
+  });
+}
+
 // Close Result button
 const closeResultBtn = $('#closeResult');
 if (closeResultBtn) {
@@ -1619,6 +1624,15 @@ function showDirectSkillResult(data) {
   heading.textContent = data.title || "Results";
   card.append(heading);
 
+  // Direct action bar
+  const actionRow = document.createElement("div");
+  actionRow.style.cssText = "display:flex;gap:8px;margin-bottom:12pt";
+  actionRow.innerHTML = `
+    <button class="ghost-button" style="font-size:11px;padding:4px 10px" id="copyDirectSkillBtn">📋 Copy findings</button>
+    <button class="ghost-button" style="font-size:11px;padding:4px 10px" id="printDirectSkillBtn">📄 Export / Print</button>
+  `;
+  card.append(actionRow);
+
   if (data.summary) {
     const summary = document.createElement("p");
     summary.textContent = data.summary;
@@ -1656,6 +1670,25 @@ function showDirectSkillResult(data) {
   }
 
   skillAnswer.replaceChildren(card);
+
+  // Wire up direct actions
+  const copyBtn = card.querySelector('#copyDirectSkillBtn');
+  if (copyBtn) {
+    copyBtn.addEventListener('click', () => {
+      const text = `${data.title}\n\n${data.summary || ''}\n\n` +
+        (data.results || []).map(r => `• ${r.title}: ${r.url}\n  ${r.snippet || ''}`).join('\n\n');
+      navigator.clipboard.writeText(text).then(() => {
+        copyBtn.textContent = '✓ Copied!';
+        setTimeout(() => copyBtn.textContent = '📋 Copy findings', 1500);
+      });
+    });
+  }
+  const printBtn = card.querySelector('#printDirectSkillBtn');
+  if (printBtn) {
+    printBtn.addEventListener('click', () => {
+      window.print();
+    });
+  }
 }
 
 // ── Initial Load ──────────────────────────────────────────────────────────────

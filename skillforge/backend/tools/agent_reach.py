@@ -55,10 +55,24 @@ def _ua_headers() -> dict:
 
 def _ddg_search(query: str, num: int = 5, site: str = "") -> list[dict]:
     """
-    CAPTCHA-free DuckDuckGo Lite search.
+    CAPTCHA-free DuckDuckGo Lite & DDGS search.
     Agent-Reach pattern: use DuckDuckGo as the no-API-key search backbone.
     """
     full_q = f"site:{site} {query}" if site else query
+    try:
+        from tools.scraper import ddg_search
+        s_res = ddg_search(full_q, num_results=num)
+        results = s_res.get("results", [])
+        if results:
+            return [{
+                "title": r.get("title", "").strip(),
+                "url": r.get("url", ""),
+                "snippet": r.get("snippet", ""),
+                "source": f"agent_reach/ddg{'/' + site if site else ''}"
+            } for r in results[:num]]
+    except Exception:
+        pass
+
     encoded = urllib.parse.urlencode({"q": full_q, "kl": "us-en"})
     url = f"https://lite.duckduckgo.com/lite/?{encoded}"
     results: list[dict] = []
@@ -146,6 +160,12 @@ def reach_web_read(url: str) -> dict:
     return result
 
 
+def _clean_query(q: str) -> str:
+    cleaned = re.sub(r"^(find|search for|give me|explain|get me|look up|show me)\s+", "", q.strip(), flags=re.IGNORECASE)
+    cleaned = re.sub(r"[.?!]+$", "", cleaned).strip()
+    return cleaned if cleaned else q
+
+
 def reach_web_search(query: str, num_results: int = 5) -> dict:
     """
     Search the open web and return real results with source URLs.
@@ -156,17 +176,19 @@ def reach_web_search(query: str, num_results: int = 5) -> dict:
     if not query or not query.strip():
         return {"error": "query cannot be empty", "results": []}
 
+    cleaned = _clean_query(query)
+
     if DEMO_MODE:
         return {
-            "query":    query,
+            "query":    cleaned,
             "results":  [{"title": "[DEMO] Result", "url": "https://example.com", "snippet": "Demo mode active.", "source": "agent_reach/demo"}],
             "source":   "agent_reach/demo",
             "duration_ms": 0
         }
 
-    results = _ddg_search(query.strip(), num=max(1, min(num_results, 10)))
+    results = _ddg_search(cleaned, num=max(1, min(num_results, 10)))
     return {
-        "query":      query,
+        "query":      cleaned,
         "results":    results,
         "count":      len([r for r in results if "error" not in r]),
         "source":     "agent_reach/ddg",
@@ -203,7 +225,8 @@ def reach_research(topic: str, read_top_result: bool = True) -> dict:
     if not topic or not topic.strip():
         return {"error": "topic cannot be empty", "sources": []}
 
-    web_results = _ddg_search(topic, num=5)
+    cleaned_topic = _clean_query(topic)
+    web_results = _ddg_search(cleaned_topic, num=5)
     sources: list[dict] = []
 
     for i, r in enumerate(web_results):
