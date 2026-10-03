@@ -407,35 +407,85 @@ const DEFAULT_QUESTIONS = {
 
 function formatMarkdown(text) {
   if (!text) return '';
+
+  // Escape HTML first
   let html = text
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;');
 
+  // Code blocks (``` ... ```) — preserve newlines inside
+  html = html.replace(/```([\s\S]*?)```/gim, (_, code) => {
+    return `<pre class="report-code-block"><code>${code.trim()}</code></pre>`;
+  });
+
+  // Inline code
+  html = html.replace(/`([^`]+)`/gim, '<code class="report-inline-code">$1</code>');
+
   // Headings
-  html = html.replace(/^### (.*$)/gim, '<h3>$1</h3>');
-  html = html.replace(/^## (.*$)/gim, '<h2>$1</h2>');
-  html = html.replace(/^# (.*$)/gim, '<h1>$1</h1>');
+  html = html.replace(/^#### (.*$)/gim, '<h4 class="rmd-h4">$1</h4>');
+  html = html.replace(/^### (.*$)/gim,  '<h3 class="rmd-h3">$1</h3>');
+  html = html.replace(/^## (.*$)/gim,   '<h2 class="rmd-h2">$1</h2>');
+  html = html.replace(/^# (.*$)/gim,    '<h1 class="rmd-h1">$1</h1>');
+
+  // Horizontal rule
+  html = html.replace(/^[-*_]{3,}$/gim, '<hr class="rmd-hr">');
 
   // Bold & Italic
   html = html.replace(/\*\*\*(.*?)\*\*\*/gim, '<b><i>$1</i></b>');
   html = html.replace(/\*\*(.*?)\*\*/gim, '<b>$1</b>');
   html = html.replace(/\*(.*?)\*/gim, '<i>$1</i>');
 
+  // Blockquote
+  html = html.replace(/^&gt;\s*(.*$)/gim, '<blockquote class="rmd-quote">$1</blockquote>');
+  html = html.replace(/<\/blockquote>\n<blockquote[^>]*>/gim, '\n');
+
   // Markdown links: [text](url)
-  html = html.replace(/\[([^\]]+)\]\((https?:\/\/[^\s\)]+)\)/gim, '<a href="$2" target="_blank" rel="noopener noreferrer">$1 ↗</a>');
+  html = html.replace(/\[([^\]]+)\]\((https?:\/\/[^\s\)]+)\)/gim,
+    '<a href="$2" target="_blank" rel="noopener noreferrer" class="rmd-link">$1 ↗</a>');
 
   // Bare URLs
-  html = html.replace(/(^|[^"'>])(https?:\/\/[a-zA-Z0-9_\-\.\/\?%&=+#;]+)/gim, '$1<a href="$2" target="_blank" rel="noopener noreferrer">$2 ↗</a>');
+  html = html.replace(/(^|[^"'>])(https?:\/\/[a-zA-Z0-9_\-\.\/\?%&=+#;:@!~]+)/gim,
+    '$1<a href="$2" target="_blank" rel="noopener noreferrer" class="rmd-link">$2 ↗</a>');
 
-  // Bullet items
-  html = html.replace(/^\s*[-*]\s+(.*$)/gim, '<li>$1</li>');
-  html = html.replace(/(<li>.*<\/li>)/gim, '<ul>$1</ul>');
-  html = html.replace(/<\/ul>\s*<ul>/gim, '');
+  // Process lists — collect consecutive items into a single <ul> or <ol>
+  const lines = html.split('\n');
+  const out = [];
+  let inUL = false, inOL = false;
 
-  // Line breaks
-  html = html.replace(/\n\n+/gim, '<br><br>');
-  return html;
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+
+    // Numbered list: "1. ", "2. " etc (with optional leading spaces)
+    const olMatch = line.match(/^(\s*)\d+\.\s+(.+)$/);
+    // Bullet list: "- ", "* ", "• " (with optional leading spaces)
+    const ulMatch = line.match(/^(\s*)[-*•]\s+(.+)$/);
+
+    if (olMatch) {
+      const indent = olMatch[1].length > 0 ? ' style="margin-left:' + Math.min(olMatch[1].length * 8, 40) + 'px"' : '';
+      if (!inOL) { if (inUL) { out.push('</ul>'); inUL = false; } out.push('<ol class="rmd-ol">'); inOL = true; }
+      out.push(`<li${indent}>${olMatch[2]}</li>`);
+    } else if (ulMatch) {
+      const indent = ulMatch[1].length > 0 ? ' style="margin-left:' + Math.min(ulMatch[1].length * 8, 40) + 'px"' : '';
+      if (!inUL) { if (inOL) { out.push('</ol>'); inOL = false; } out.push('<ul class="rmd-ul">'); inUL = true; }
+      out.push(`<li${indent}>${ulMatch[2]}</li>`);
+    } else {
+      if (inUL) { out.push('</ul>'); inUL = false; }
+      if (inOL) { out.push('</ol>'); inOL = false; }
+      // Blank line → paragraph break
+      if (line.trim() === '') {
+        out.push('<p class="rmd-spacer"></p>');
+      } else if (/^<(h[1-4]|hr|blockquote|pre|ul|ol)/.test(line.trim())) {
+        out.push(line); // already-wrapped block elements — pass through
+      } else {
+        out.push(`<p class="rmd-p">${line}</p>`);
+      }
+    }
+  }
+  if (inUL) out.push('</ul>');
+  if (inOL) out.push('</ol>');
+
+  return out.join('\n');
 }
 
 function formatTweetText(text) {

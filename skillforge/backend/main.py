@@ -55,7 +55,21 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# ── Suppress noisy polling endpoints from uvicorn access log ──────────────────
+import logging
+
+class _NoiseFilter(logging.Filter):
+    """Silence high-frequency health/ledger poll requests in the terminal."""
+    _SKIP = {"/api/ledger", "/api/ledger/verify", "/health", "/favicon.ico"}
+
+    def filter(self, record: logging.LogRecord) -> bool:  # noqa: A003
+        msg = record.getMessage()
+        return not any(skip in msg for skip in self._SKIP)
+
+logging.getLogger("uvicorn.access").addFilter(_NoiseFilter())
+
 DEMO_MODE = os.environ.get("SKILLFORGE_DEMO", "false").lower() == "true"
+
 
 
 # ── Health ─────────────────────────────────────────────────────────────────────
