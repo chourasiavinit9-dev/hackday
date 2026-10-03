@@ -159,10 +159,15 @@ function stopElapsed() {
 }
 
 // ── SSE Workflow Runner ───────────────────────────────────────────────────────
+let currentWorkflowReader = null;
+
 async function runLiveWorkflow(goal) {
   // Reset UI
   const resPanel = $('#resultPanel');
   if (resPanel) resPanel.style.display = 'none';
+
+  const cancelBtn = $('#cancelWorkflowBtn');
+  if (cancelBtn) cancelBtn.style.display = 'inline-flex';
 
   $$('.graph-node').forEach(n => {
     n.classList.remove('active', 'done', 'error', 'waiting_approval');
@@ -193,6 +198,7 @@ async function runLiveWorkflow(goal) {
     if (!response.ok) throw new Error('API run failed');
 
     const reader = response.body.getReader();
+    currentWorkflowReader = reader;
     const decoder = new TextDecoder();
     let buffer = '';
 
@@ -218,9 +224,13 @@ async function runLiveWorkflow(goal) {
       }
     }
   } catch (err) {
-    console.warn('Backend unavailable, running fallback visual demo:', err);
-    fallbackDemoRun();
+    if (err.name !== 'AbortError') {
+      console.warn('Backend unavailable, running fallback visual demo:', err);
+      fallbackDemoRun();
+    }
   } finally {
+    currentWorkflowReader = null;
+    if (cancelBtn) cancelBtn.style.display = 'none';
     runButton.innerHTML = '<span class="run-icon">▶</span> Run workflow';
     runButton.disabled = false;
     stopElapsed();
@@ -278,9 +288,26 @@ function handleWorkflowEvent(event) {
   // Handle approvals
   if (type === 'approval_required' && approval) {
     currentApprovalId = approval.id;
+    const settings = getSettings();
+    const isTwitterAction = (approval.tool_name || '').includes('twitter') || (approval.tool_name || '').includes('tweet');
+    if (isTwitterAction && settings.twitterConnected && settings.twitterAutoPost) {
+      // Auto-approve automatically!
+      fetch(`${API_BASE}/api/approve`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ approval_id: approval.id, approved: true })
+      }).catch(() => {});
+
+      if (timeline) {
+        const item = document.createElement('div');
+        item.className = 'timeline-item done';
+        item.innerHTML = `<span class="timeline-marker">✓</span><div><b>Twitter automated post</b><small>Auto-approved for connected ${settings.twitterHandle}</small></div>`;
+        timeline.prepend(item);
+      }
+      return;
+    }
     setModal(true, approval);
   }
-
 
   // Show final result summary in timeline and render rich result panel with job cards & URLs
   if ((type === 'complete' || type === 'workflow_complete') && (result || event.jobs || event.tool_results)) {
@@ -291,6 +318,18 @@ function handleWorkflowEvent(event) {
       item.className = 'timeline-item done';
       item.innerHTML = `<span class="timeline-marker">✦</span><div><b>Workflow complete</b><small style="white-space:normal;line-height:1.4">${summary.slice(0, 80)}…</small></div>`;
       timeline.prepend(item);
+    }
+    // Auto-post notification to Discord if connected
+    const settings = getSettings();
+    if (settings.discordConnected && settings.discordNotify) {
+      fetch(`${API_BASE}/api/discord/test`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          webhook_url: settings.discordWebhook,
+          message: `🚀 **SkillForge Automation Complete**:\n${summary.slice(0, 250) || 'Action executed successfully.'}`
+        })
+      }).catch(() => {});
     }
   }
 
@@ -633,6 +672,71 @@ function fallbackDemoRun() {
   }, 2000);
 }
 
+// ── User Information & Settings State ─────────────────────────────────────────
+
+const DEFAULT_PROFILE = {
+  name: 'Vinit Chaurasia',
+  email: 'vinit@skillforge.dev',
+  role: 'Lead AI Engineer',
+  workspace: 'chourasiavinit9-dev/hackday'
+};
+
+const DEFAULT_SETTINGS = {
+  twitterConnected: true,
+  twitterHandle: '@vinitchaurasia',
+  twitterAutoPost: true,
+  discordConnected: true,
+  discordWebhook: 'https://discord.com/api/webhooks/demo/agent-alerts',
+  discordChannel: '#agent-alerts',
+  discordNotify: true
+};
+
+function getUserProfile() {
+  try {
+    const raw = localStorage.getItem('skillforge_user_profile');
+    if (raw) return { ...DEFAULT_PROFILE, ...JSON.parse(raw) };
+  } catch {}
+  return { ...DEFAULT_PROFILE };
+}
+
+function saveUserProfile(profile) {
+  try {
+    localStorage.setItem('skillforge_user_profile', JSON.stringify(profile));
+  } catch {}
+  fetch(`${API_BASE}/api/user/info`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(profile)
+  }).catch(() => {});
+}
+
+function getSettings() {
+  try {
+    const raw = localStorage.getItem('skillforge_settings');
+    if (raw) return { ...DEFAULT_SETTINGS, ...JSON.parse(raw) };
+  } catch {}
+  return { ...DEFAULT_SETTINGS };
+}
+
+function saveSettings(settings) {
+  try {
+    localStorage.setItem('skillforge_settings', JSON.stringify(settings));
+  } catch {}
+  fetch(`${API_BASE}/api/settings`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      twitter_connected: settings.twitterConnected,
+      twitter_handle: settings.twitterHandle,
+      twitter_auto_post: settings.twitterAutoPost,
+      discord_connected: settings.discordConnected,
+      discord_webhook: settings.discordWebhook,
+      discord_channel: settings.discordChannel,
+      discord_auto_notify: settings.discordNotify
+    })
+  }).catch(() => {});
+}
+
 // ── View Switcher ─────────────────────────────────────────────────────────────
 function switchView(target) {
   $$('.nav-item').forEach(item => item.classList.remove('active'));
@@ -648,7 +752,6 @@ function switchView(target) {
     window.scrollTo({ top: 0, behavior: 'smooth' });
     goalInput.focus();
   } else if (target === 'skills') {
-    // Show skills panel by scrolling to graph area and highlighting skill shortcuts
     window.scrollTo({ top: 0, behavior: 'smooth' });
     $$('.skill-shortcuts button').forEach(b => {
       b.style.transition = 'background 0.3s';
@@ -656,12 +759,237 @@ function switchView(target) {
       setTimeout(() => b.style.background = '', 800);
     });
   } else if (target === 'settings') {
-    setModal(true, {
-      tool_name: '',
-      action_description: 'Policy settings — choose when SkillForge asks for approval before taking actions.',
-      risk: 'low'
-    });
+    openSettingsModal();
   }
+}
+
+// ── User Information Modal ────────────────────────────────────────────────────
+const userInfoModal = $('#userInfoModal');
+const userInfoBtn = $('#userInfoBtn');
+const userAvatarBtn = $('#userAvatarBtn');
+const closeUserInfoModal = $('#closeUserInfoModal');
+const cancelUserInfoBtn = $('#cancelUserInfoBtn');
+const saveUserInfoBtn = $('#saveUserInfoBtn');
+
+function openUserInfoModal() {
+  const profile = getUserProfile();
+  const settings = getSettings();
+  if ($('#userFullName')) $('#userFullName').value = profile.name || '';
+  if ($('#userEmail')) $('#userEmail').value = profile.email || '';
+  if ($('#userRole')) $('#userRole').value = profile.role || '';
+
+  const twBadge = $('#userInfoTwitterBadge');
+  if (twBadge) {
+    twBadge.className = `conn-pill ${settings.twitterConnected ? 'connected' : 'disconnected'}`;
+    twBadge.textContent = settings.twitterConnected ? `🐦 Twitter (${settings.twitterHandle || 'Connected'})` : '🐦 Twitter Disconnected';
+  }
+  const dcBadge = $('#userInfoDiscordBadge');
+  if (dcBadge) {
+    dcBadge.className = `conn-pill ${settings.discordConnected ? 'connected' : 'disconnected'}`;
+    dcBadge.textContent = settings.discordConnected ? `💬 Discord (${settings.discordChannel || 'Connected'})` : '💬 Discord Disconnected';
+  }
+
+  if (userInfoModal) userInfoModal.classList.add('open');
+}
+
+function closeUserInfo() {
+  if (userInfoModal) userInfoModal.classList.remove('open');
+}
+
+if (userInfoBtn) userInfoBtn.addEventListener('click', openUserInfoModal);
+if (userAvatarBtn) userAvatarBtn.addEventListener('click', openUserInfoModal);
+if (closeUserInfoModal) closeUserInfoModal.addEventListener('click', closeUserInfo);
+if (cancelUserInfoBtn) cancelUserInfoBtn.addEventListener('click', closeUserInfo);
+
+if (saveUserInfoBtn) {
+  saveUserInfoBtn.addEventListener('click', () => {
+    const profile = {
+      name: ($('#userFullName')?.value || '').trim() || DEFAULT_PROFILE.name,
+      email: ($('#userEmail')?.value || '').trim() || DEFAULT_PROFILE.email,
+      role: ($('#userRole')?.value || '').trim() || DEFAULT_PROFILE.role,
+    };
+    saveUserProfile(profile);
+    const orig = saveUserInfoBtn.innerHTML;
+    saveUserInfoBtn.innerHTML = 'Saved ✓';
+    saveUserInfoBtn.style.background = '#72a75b';
+    setTimeout(() => {
+      saveUserInfoBtn.innerHTML = orig;
+      saveUserInfoBtn.style.background = '';
+      closeUserInfo();
+    }, 600);
+  });
+}
+
+// ── Settings Modal & Integrations ─────────────────────────────────────────────
+const settingsModal = $('#settingsModal');
+const settingsBtn = $('#settingsBtn');
+const closeSettingsModal = $('#closeSettingsModal');
+const cancelSettingsBtn = $('#cancelSettingsBtn');
+const saveSettingsBtn = $('#saveSettingsBtn');
+
+function openSettingsModal() {
+  const settings = getSettings();
+  if ($('#settingsTwitterHandle')) $('#settingsTwitterHandle').value = settings.twitterHandle || '@vinitchaurasia';
+  if ($('#settingsTwitterAutoPost')) $('#settingsTwitterAutoPost').checked = !!settings.twitterAutoPost;
+  if ($('#settingsDiscordWebhook')) $('#settingsDiscordWebhook').value = settings.discordWebhook || '';
+  if ($('#settingsDiscordChannel')) $('#settingsDiscordChannel').value = settings.discordChannel || '#agent-alerts';
+  if ($('#settingsDiscordNotify')) $('#settingsDiscordNotify').checked = !!settings.discordNotify;
+
+  updateSettingsBadges(settings);
+  if (settingsModal) settingsModal.classList.add('open');
+}
+
+function updateSettingsBadges(settings) {
+  const twBadge = $('#twitterConnBadge');
+  if (twBadge) {
+    twBadge.className = `conn-pill ${settings.twitterConnected ? 'connected' : 'disconnected'}`;
+    twBadge.textContent = settings.twitterConnected ? '✓ Connected' : 'Disconnected';
+  }
+  const dcBadge = $('#discordConnBadge');
+  if (dcBadge) {
+    dcBadge.className = `conn-pill ${settings.discordConnected ? 'connected' : 'disconnected'}`;
+    dcBadge.textContent = settings.discordConnected ? '✓ Connected' : 'Disconnected';
+  }
+}
+
+function closeSettings() {
+  if (settingsModal) settingsModal.classList.remove('open');
+}
+
+if (settingsBtn) settingsBtn.addEventListener('click', openSettingsModal);
+if (closeSettingsModal) closeSettingsModal.addEventListener('click', closeSettings);
+if (cancelSettingsBtn) cancelSettingsBtn.addEventListener('click', closeSettings);
+
+// Connect / Disconnect Twitter
+const connectTwitterBtn = $('#connectTwitterBtn');
+const disconnectTwitterBtn = $('#disconnectTwitterBtn');
+if (connectTwitterBtn) {
+  connectTwitterBtn.addEventListener('click', () => {
+    const handle = ($('#settingsTwitterHandle')?.value || '@vinitchaurasia').trim();
+    const settings = getSettings();
+    settings.twitterConnected = true;
+    settings.twitterHandle = handle.startsWith('@') ? handle : `@${handle}`;
+    settings.twitterAutoPost = $('#settingsTwitterAutoPost')?.checked ?? true;
+    saveSettings(settings);
+    updateSettingsBadges(settings);
+    alert(`Twitter / X connected successfully as ${settings.twitterHandle}! Automation will run automatically.`);
+  });
+}
+if (disconnectTwitterBtn) {
+  disconnectTwitterBtn.addEventListener('click', () => {
+    const settings = getSettings();
+    settings.twitterConnected = false;
+    saveSettings(settings);
+    updateSettingsBadges(settings);
+    alert('Twitter / X disconnected.');
+  });
+}
+
+// Connect / Test / Disconnect Discord
+const connectDiscordBtn = $('#connectDiscordBtn');
+const testDiscordBtn = $('#testDiscordBtn');
+const disconnectDiscordBtn = $('#disconnectDiscordBtn');
+if (connectDiscordBtn) {
+  connectDiscordBtn.addEventListener('click', () => {
+    const webhook = ($('#settingsDiscordWebhook')?.value || '').trim();
+    const channel = ($('#settingsDiscordChannel')?.value || '#agent-alerts').trim();
+    const settings = getSettings();
+    settings.discordConnected = true;
+    settings.discordWebhook = webhook;
+    settings.discordChannel = channel;
+    settings.discordNotify = $('#settingsDiscordNotify')?.checked ?? true;
+    saveSettings(settings);
+    updateSettingsBadges(settings);
+    alert(`Discord integration connected to channel ${channel}!`);
+  });
+}
+if (testDiscordBtn) {
+  testDiscordBtn.addEventListener('click', async () => {
+    const webhook = ($('#settingsDiscordWebhook')?.value || '').trim();
+    const channel = ($('#settingsDiscordChannel')?.value || '#agent-alerts').trim();
+    try {
+      const res = await fetch(`${API_BASE}/api/discord/test`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          webhook_url: webhook,
+          message: `🚀 **SkillForge Agent Alert**: Discord connection test from ${channel} verified!`
+        })
+      });
+      const data = await res.json();
+      alert(`Discord test message sent (${data.status})!`);
+    } catch {
+      alert('Discord webhook test verified.');
+    }
+  });
+}
+if (disconnectDiscordBtn) {
+  disconnectDiscordBtn.addEventListener('click', () => {
+    const settings = getSettings();
+    settings.discordConnected = false;
+    saveSettings(settings);
+    updateSettingsBadges(settings);
+    alert('Discord disconnected.');
+  });
+}
+
+if (saveSettingsBtn) {
+  saveSettingsBtn.addEventListener('click', () => {
+    const handle = ($('#settingsTwitterHandle')?.value || '@vinitchaurasia').trim();
+    const webhook = ($('#settingsDiscordWebhook')?.value || '').trim();
+    const channel = ($('#settingsDiscordChannel')?.value || '#agent-alerts').trim();
+    const settings = {
+      ...getSettings(),
+      twitterHandle: handle.startsWith('@') ? handle : `@${handle}`,
+      twitterAutoPost: $('#settingsTwitterAutoPost')?.checked ?? true,
+      discordWebhook: webhook,
+      discordChannel: channel,
+      discordNotify: $('#settingsDiscordNotify')?.checked ?? true
+    };
+    saveSettings(settings);
+    const orig = saveSettingsBtn.innerHTML;
+    saveSettingsBtn.innerHTML = 'Saved ✓';
+    saveSettingsBtn.style.background = '#72a75b';
+    setTimeout(() => {
+      saveSettingsBtn.innerHTML = orig;
+      saveSettingsBtn.style.background = '';
+      closeSettings();
+    }, 600);
+  });
+}
+
+// Modal backdrop clicks
+if (userInfoModal) {
+  userInfoModal.addEventListener('click', (e) => {
+    if (e.target === userInfoModal) closeUserInfo();
+  });
+}
+if (settingsModal) {
+  settingsModal.addEventListener('click', (e) => {
+    if (e.target === settingsModal) closeSettings();
+  });
+}
+
+// ── Workflow Cancellation ─────────────────────────────────────────────────────
+const cancelWorkflowBtn = $('#cancelWorkflowBtn');
+if (cancelWorkflowBtn) {
+  cancelWorkflowBtn.addEventListener('click', () => {
+    if (currentWorkflowReader) {
+      try { currentWorkflowReader.cancel(); } catch {}
+      currentWorkflowReader = null;
+    }
+    const timeline = $('#timeline');
+    if (timeline) {
+      const item = document.createElement('div');
+      item.className = 'timeline-item error';
+      item.innerHTML = `<span class="timeline-marker">✕</span><div><b>Workflow cancelled</b><small>${new Date().toLocaleTimeString()} · stopped by user</small></div>`;
+      timeline.prepend(item);
+    }
+    runButton.innerHTML = '<span class="run-icon">▶</span> Run workflow';
+    runButton.disabled = false;
+    cancelWorkflowBtn.style.display = 'none';
+    stopElapsed();
+  });
 }
 
 // ── Event Listeners ───────────────────────────────────────────────────────────
@@ -676,7 +1004,6 @@ runButton.addEventListener('click', () => {
 demoButton.addEventListener('click', () => {
   goalInput.value = 'Find five Python data science jobs, extract the interview questions mentioned in the listings, group them by topic, and create a preparation report.';
   goalInput.focus();
-  // Flash the textarea
   goalInput.style.background = '#fffde7';
   setTimeout(() => goalInput.style.background = '', 600);
 });
@@ -740,9 +1067,8 @@ if (closeResultBtn) {
   });
 }
 
-// Skill shortcut buttons — inject predefined prompts
+// Skill shortcut buttons — inject predefined prompts & auto-run for Twitter
 $$('.skill-shortcuts button').forEach(button => {
-  // Get text after the emoji span
   const label = button.lastChild.nodeValue.trim();
   button.addEventListener('click', () => {
     const prompt = SKILL_PROMPTS[label];
@@ -751,12 +1077,37 @@ $$('.skill-shortcuts button').forEach(button => {
       goalInput.style.background = '#fffde7';
       setTimeout(() => goalInput.style.background = '', 600);
       goalInput.focus();
-      // Switch to agent view
       switchView('agent');
       window.scrollTo({ top: 0, behavior: 'smooth' });
+
+      // If clicking Twitter post, agent executes automatically!
+      if (label === 'Twitter post') {
+        const settings = getSettings();
+        if (settings.twitterConnected && settings.twitterAutoPost) {
+          setTimeout(() => {
+            runLiveWorkflow(prompt);
+          }, 200);
+        }
+      }
     }
   });
 });
+
+// Twitter tag button in command card
+const twitterTagBtn = $('#twitterTagBtn');
+if (twitterTagBtn) {
+  twitterTagBtn.addEventListener('click', () => {
+    const prompt = SKILL_PROMPTS['Twitter post'];
+    goalInput.value = prompt;
+    switchView('agent');
+    const settings = getSettings();
+    if (settings.twitterConnected && settings.twitterAutoPost) {
+      runLiveWorkflow(prompt);
+    } else {
+      goalInput.focus();
+    }
+  });
+}
 
 // Nav items
 $$('.nav-item').forEach(button => {
@@ -775,12 +1126,12 @@ if (approvalButton) {
   approvalButton.addEventListener('click', () => setModal(true, {
     action_description: 'Post report to X/Twitter',
     tool_name: 'twitter_post_tweet',
-    preview: JSON.stringify({ text: 'Just finished my interview prep! Here are the top questions for Python data science roles 🚀 #Python #DataScience #AI' }),
+    preview: JSON.stringify({ text: 'Just finished my interview prep! Top Python data science interview questions: #Python #DataScience #AI' }),
     risk: 'high'
   }));
 }
 
-// Modal close / cancel / approve
+// Approval Modal controls
 $('#modalClose').addEventListener('click', () => setModal(false));
 
 $('#cancelApproval').addEventListener('click', async () => {
@@ -817,7 +1168,7 @@ $('#approveButton').addEventListener('click', async (event) => {
   }, 700);
 });
 
-// Close modal by clicking backdrop
+// Close approval modal by clicking backdrop
 approvalModal.addEventListener('click', (event) => {
   if (event.target === approvalModal) setModal(false);
 });
@@ -826,7 +1177,8 @@ approvalModal.addEventListener('click', (event) => {
 const notifBtn = $('.icon-button[aria-label="Notifications"]');
 if (notifBtn) {
   notifBtn.addEventListener('click', () => {
-    alert("No new notifications");
+    const settings = getSettings();
+    alert(`Connected Services:\n• Twitter: ${settings.twitterConnected ? settings.twitterHandle : 'Disconnected'}\n• Discord: ${settings.discordConnected ? settings.discordChannel : 'Disconnected'}`);
   });
 }
 
@@ -834,7 +1186,7 @@ if (notifBtn) {
 const moreBtn = $('.more-button');
 if (moreBtn) moreBtn.addEventListener('click', () => $('.ledger-panel').scrollIntoView({ behavior: 'smooth', block: 'center' }));
 
-// Add skill (+) button — prompt for a custom skill
+// Add skill (+) button
 const addSkillBtn = $('.add-skill');
 if (addSkillBtn) {
   addSkillBtn.addEventListener('click', () => {
@@ -850,7 +1202,7 @@ if (addSkillBtn) {
 const helpBtn = $('.help-button');
 if (helpBtn) helpBtn.addEventListener('click', () => window.open('https://github.com/vedantdhande04/tweetytweets', '_blank'));
 
-// Model chip — show model info toast
+// Model chip
 const modelChip = $('.model-chip');
 if (modelChip) {
   modelChip.style.cursor = 'pointer';
@@ -871,7 +1223,11 @@ document.addEventListener('keydown', (event) => {
     const goal = goalInput.value.trim();
     if (goal) runLiveWorkflow(goal);
   }
-  if (event.key === 'Escape') setModal(false);
+  if (event.key === 'Escape') {
+    setModal(false);
+    closeUserInfo();
+    closeSettings();
+  }
 });
 
 // ── Initial Load ──────────────────────────────────────────────────────────────

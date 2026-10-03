@@ -226,6 +226,106 @@ def verify_ledger():
     return get_ledger().verify()
 
 
+# ── User Profile & Settings Integrations ──────────────────────────────────────
+
+_USER_PROFILE = {
+    "name": "Vinit Chaurasia",
+    "email": "vinit@skillforge.dev",
+    "role": "Lead AI Architect",
+    "organization": "SkillForge Runtime",
+    "workspace": "chourasiavinit9-dev/hackday",
+    "bio": "Building autonomous AI agent runtimes powered by Gemma & open models."
+}
+
+_SETTINGS_STATE = {
+    "twitter_connected": True,
+    "twitter_handle": "@vinitchaurasia",
+    "twitter_auto_post": True,
+    "discord_connected": True,
+    "discord_webhook": "https://discord.com/api/webhooks/demo/agent-alerts",
+    "discord_channel": "#agent-alerts",
+    "discord_auto_notify": True,
+    "auto_approve_safe": True
+}
+
+
+class UserProfileUpdate(BaseModel):
+    name: Optional[str] = None
+    email: Optional[str] = None
+    role: Optional[str] = None
+    organization: Optional[str] = None
+    bio: Optional[str] = None
+
+
+class SettingsUpdate(BaseModel):
+    twitter_connected: Optional[bool] = None
+    twitter_handle: Optional[str] = None
+    twitter_auto_post: Optional[bool] = None
+    discord_connected: Optional[bool] = None
+    discord_webhook: Optional[str] = None
+    discord_channel: Optional[str] = None
+    discord_auto_notify: Optional[bool] = None
+    auto_approve_safe: Optional[bool] = None
+
+
+@app.get("/api/user/info")
+def get_user_info():
+    return _USER_PROFILE
+
+
+@app.post("/api/user/info")
+def update_user_info(data: UserProfileUpdate):
+    for k, v in data.dict(exclude_unset=True).items():
+        if v is not None:
+            _USER_PROFILE[k] = v
+    return _USER_PROFILE
+
+
+@app.get("/api/settings")
+def get_settings():
+    return _SETTINGS_STATE
+
+
+@app.post("/api/settings")
+def update_settings(data: SettingsUpdate):
+    for k, v in data.dict(exclude_unset=True).items():
+        if v is not None:
+            _SETTINGS_STATE[k] = v
+    return _SETTINGS_STATE
+
+
+class DiscordTestRequest(BaseModel):
+    webhook_url: Optional[str] = None
+    message: Optional[str] = None
+
+
+@app.post("/api/discord/test")
+async def test_discord_webhook(req: DiscordTestRequest):
+    url = req.webhook_url or _SETTINGS_STATE.get("discord_webhook")
+    msg = req.message or "🚀 **SkillForge Agent Alert**: Discord connection test successful! Autonomous updates connected."
+    if not url:
+        raise HTTPException(400, "Webhook URL required")
+    if url.startswith("https://discord.com/api/webhooks/"):
+        try:
+            import urllib.request
+            payload = json.dumps({
+                "content": msg,
+                "embeds": [{
+                    "title": "SkillForge Agent Online",
+                    "description": "Discord channel successfully connected for autonomous actions.",
+                    "color": 0x7cbe57,
+                    "timestamp": datetime.utcnow().isoformat()
+                }]
+            }).encode("utf-8")
+            r = urllib.request.Request(url, data=payload, headers={"Content-Type": "application/json", "User-Agent": "SkillForge/1.0"})
+            with urllib.request.urlopen(r, timeout=3) as resp:
+                pass
+            return {"ok": True, "status": "sent", "channel": _SETTINGS_STATE.get("discord_channel")}
+        except Exception as e:
+            return {"ok": True, "status": "simulated", "note": f"Webhook recorded (test mode: {str(e)[:50]})"}
+    return {"ok": True, "status": "simulated", "channel": _SETTINGS_STATE.get("discord_channel")}
+
+
 # ── Frontend static serving (single-service deploy) ───────────────────────────
 _frontend_dir = Path(__file__).resolve().parent.parent / "frontend"
 

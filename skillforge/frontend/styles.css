@@ -249,3 +249,47 @@
   border-radius: 4px;
   font-size: 12px;
 }
+
+/* ── Settings & Integrations ────────────────────────────────────────────── */
+.settings-card {
+  background: #ffffff;
+  border: 1px solid #eae4da;
+  border-radius: 12px;
+  padding: 16px 18px;
+  box-shadow: 0 4px 14px rgba(40, 30, 20, 0.02);
+}
+.settings-input {
+  width: 100%;
+  border: 1px solid #ded6ca;
+  background: #faf7f2;
+  border-radius: 8px;
+  padding: 9px 12px;
+  font: 12.5px 'Space Grotesk', sans-serif;
+  color: var(--ink);
+  outline: none;
+  box-sizing: border-box;
+  transition: all 0.2s ease;
+}
+.settings-input:focus {
+  border-color: var(--black);
+  background: #ffffff;
+  box-shadow: 0 0 0 3px rgba(36, 34, 37, 0.08);
+}
+.conn-pill {
+  font: 600 10px 'DM Mono', monospace;
+  padding: 3px 9px;
+  border-radius: 20px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.conn-pill.connected {
+  background: #e6f4dd;
+  color: #3b7428;
+  border: 1px solid #cce5be;
+}
+.conn-pill.disconnected {
+  background: #fbeae5;
+  color: #c94326;
+  border: 1px solid #f6d1c7;
+}
