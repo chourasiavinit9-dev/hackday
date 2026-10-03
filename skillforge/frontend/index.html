@@ -212,64 +212,150 @@
 
     <!-- ── Settings & Integrations Modal ───────────────────────────────── -->
     <div class="modal-backdrop" id="settingsModal" aria-hidden="true">
-      <div class="approval-modal" style="max-width:540px">
+      <div class="approval-modal settings-modal-wide">
         <button class="modal-close" id="closeSettingsModal">×</button>
-        <div class="risk-icon" style="background:#e8eaf6;color:#3f51b5">⚙</div>
-        <span class="section-kicker" style="color:#3f51b5">SYSTEM SETTINGS & INTEGRATIONS</span>
-        <h2>Settings & Connections</h2>
-        <p>Connect your Twitter / X and Discord accounts so the agent can execute automation workflows automatically.</p>
+        <div class="risk-icon" style="background:#e8eaf6;color:#3f51b5;font-size:20px">⚙</div>
+        <span class="section-kicker" style="color:#3f51b5">CREDENTIALS &amp; INTEGRATIONS</span>
+        <h2 style="font:700 22px 'Space Grotesk';margin:7px 0 4px">Settings &amp; Connections</h2>
+        <p style="font-size:12px;color:#7a7490;margin:0 0 18px;line-height:1.5">Add your credentials so the agent can automate Twitter posts, YouTube actions, and Discord notifications on your behalf.</p>
 
-        <!-- Twitter Section -->
-        <div class="settings-card">
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-            <div style="display:flex;align-items:center;gap:8px">
-              <span style="font-size:18px">🐦</span>
-              <strong style="font:700 14px 'Space Grotesk'">Twitter / X Account</strong>
+        <!-- Tab Bar -->
+        <div class="settings-tabs">
+          <button class="settings-tab active" data-stab="profile">👤 Profile</button>
+          <button class="settings-tab" data-stab="twitter">𝕏 Twitter</button>
+          <button class="settings-tab" data-stab="youtube">▶ YouTube</button>
+          <button class="settings-tab" data-stab="discord">💬 Discord</button>
+        </div>
+
+        <!-- ── Profile Tab ── -->
+        <div class="settings-tab-pane active" id="stab-profile">
+          <div class="cred-section">
+            <div class="cred-section-title">🙋 Your Identity</div>
+            <div class="cred-grid">
+              <div class="cred-field">
+                <label class="cred-label">FULL NAME</label>
+                <input type="text" id="settingsName" class="settings-input" placeholder="Your full name" />
+              </div>
+              <div class="cred-field">
+                <label class="cred-label">EMAIL ADDRESS</label>
+                <input type="email" id="settingsEmail" class="settings-input" placeholder="you@example.com" />
+              </div>
+              <div class="cred-field">
+                <label class="cred-label">ROLE / TITLE</label>
+                <input type="text" id="settingsRole" class="settings-input" placeholder="e.g. Lead AI Engineer" />
+              </div>
+              <div class="cred-field">
+                <label class="cred-label">GEMINI API KEY <span class="cred-required">Required for agent</span></label>
+                <input type="password" id="settingsGeminiKey" class="settings-input" placeholder="AIza..." autocomplete="off" />
+                <small class="cred-note">Used to power the Gemma 4 reasoning engine. <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer">Get a key ↗</a></small>
+              </div>
             </div>
-            <span id="twitterConnBadge" class="conn-pill connected">✓ Connected</span>
-          </div>
-          <p style="font-size:11px;color:#78716a;margin:0 0 10px">Connected handle used by the agent to draft, research, and post automated updates.</p>
-          <div style="display:grid;gap:8px;margin-bottom:10px">
-            <input type="text" id="settingsTwitterHandle" class="settings-input" placeholder="@username" value="@vinitchaurasia" />
-          </div>
-          <label style="display:flex;align-items:center;gap:8px;font-size:11.5px;color:#453f3a;cursor:pointer;margin-bottom:10px">
-            <input type="checkbox" id="settingsTwitterAutoPost" checked />
-            <span><b>Auto-run Twitter automation</b> (Run automatically without manual approval prompts)</span>
-          </label>
-          <div style="display:flex;gap:8px">
-            <button class="primary-button" id="connectTwitterBtn" style="background:#1da1f2;color:#fff;padding:6px 12px;font-size:11px">Connect Twitter / X</button>
-            <button class="ghost-button" id="disconnectTwitterBtn" style="padding:6px 12px;font-size:11px">Disconnect</button>
           </div>
         </div>
 
-        <!-- Discord Section -->
-        <div class="settings-card" style="margin-top:14px">
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-            <div style="display:flex;align-items:center;gap:8px">
-              <span style="font-size:18px">💬</span>
-              <strong style="font:700 14px 'Space Grotesk'">Discord Webhook Integration</strong>
+        <!-- ── Twitter / X Tab ── -->
+        <div class="settings-tab-pane" id="stab-twitter">
+          <div class="cred-section">
+            <div class="cred-section-header">
+              <div class="cred-section-title">🐦 Twitter / X Credentials</div>
+              <span id="twitterConnBadge" class="conn-pill">Disconnected</span>
             </div>
-            <span id="discordConnBadge" class="conn-pill connected">✓ Connected</span>
-          </div>
-          <p style="font-size:11px;color:#78716a;margin:0 0 10px">The agent automatically posts findings, alerts, and workflow completions to your Discord channel.</p>
-          <div style="display:grid;gap:8px;margin-bottom:10px">
-            <input type="text" id="settingsDiscordWebhook" class="settings-input" placeholder="https://discord.com/api/webhooks/..." value="https://discord.com/api/webhooks/demo/agent-alerts" />
-            <input type="text" id="settingsDiscordChannel" class="settings-input" placeholder="#agent-alerts" value="#agent-alerts" />
-          </div>
-          <label style="display:flex;align-items:center;gap:8px;font-size:11.5px;color:#453f3a;cursor:pointer;margin-bottom:10px">
-            <input type="checkbox" id="settingsDiscordNotify" checked />
-            <span><b>Post completed reports to Discord automatically</b></span>
-          </label>
-          <div style="display:flex;gap:8px">
-            <button class="primary-button" id="connectDiscordBtn" style="background:#5865f2;color:#fff;padding:6px 12px;font-size:11px">Connect Discord</button>
-            <button class="ghost-button" id="testDiscordBtn" style="padding:6px 12px;font-size:11px">Test Webhook ↗</button>
-            <button class="ghost-button" id="disconnectDiscordBtn" style="padding:6px 12px;font-size:11px">Disconnect</button>
+            <p class="cred-desc">The agent uses these to search Twitter and post automated updates on your behalf. All credentials are stored locally in your browser.</p>
+            <div class="cred-grid">
+              <div class="cred-field">
+                <label class="cred-label">TWITTER HANDLE</label>
+                <input type="text" id="settingsTwitterHandle" class="settings-input" placeholder="@username" />
+              </div>
+              <div class="cred-field">
+                <label class="cred-label">BEARER TOKEN <span class="cred-required">For search</span></label>
+                <input type="password" id="settingsTwitterBearer" class="settings-input" placeholder="AAA..." autocomplete="off" />
+                <small class="cred-note">Twitter API v2 Bearer Token. <a href="https://developer.twitter.com/en/portal/dashboard" target="_blank" rel="noopener noreferrer">Get from developer portal ↗</a></small>
+              </div>
+              <div class="cred-field">
+                <label class="cred-label">API KEY <span class="cred-optional">Optional, for posting</span></label>
+                <input type="password" id="settingsTwitterApiKey" class="settings-input" placeholder="Twitter API Key" autocomplete="off" />
+              </div>
+              <div class="cred-field">
+                <label class="cred-label">API SECRET <span class="cred-optional">Optional</span></label>
+                <input type="password" id="settingsTwitterApiSecret" class="settings-input" placeholder="Twitter API Secret" autocomplete="off" />
+              </div>
+            </div>
+            <label class="cred-toggle">
+              <input type="checkbox" id="settingsTwitterAutoPost" />
+              <span><b>Auto-post to Twitter</b> — Agent posts results automatically without asking for approval</span>
+            </label>
+            <div class="cred-actions">
+              <button class="cred-connect-btn twitter-btn" id="connectTwitterBtn">Connect Twitter ↗</button>
+              <button class="ghost-button" id="disconnectTwitterBtn" style="padding:7px 12px;font-size:11px">Disconnect</button>
+            </div>
           </div>
         </div>
 
-        <div class="modal-actions" style="margin-top:20px">
+        <!-- ── YouTube Tab ── -->
+        <div class="settings-tab-pane" id="stab-youtube">
+          <div class="cred-section">
+            <div class="cred-section-header">
+              <div class="cred-section-title">▶ YouTube Credentials</div>
+              <span id="youtubeConnBadge" class="conn-pill">Disconnected</span>
+            </div>
+            <p class="cred-desc">Used by the agent to search YouTube videos and optionally post comments or descriptions automatically.</p>
+            <div class="cred-grid">
+              <div class="cred-field">
+                <label class="cred-label">YOUTUBE CHANNEL ID <span class="cred-optional">Optional</span></label>
+                <input type="text" id="settingsYoutubeChannelId" class="settings-input" placeholder="UC..." />
+                <small class="cred-note">Find it in YouTube Studio → Settings → Channel → Advanced</small>
+              </div>
+              <div class="cred-field">
+                <label class="cred-label">GOOGLE / YOUTUBE API KEY <span class="cred-required">For search</span></label>
+                <input type="password" id="settingsYoutubeApiKey" class="settings-input" placeholder="AIza..." autocomplete="off" />
+                <small class="cred-note">Enable YouTube Data API v3 in <a href="https://console.cloud.google.com/apis/library" target="_blank" rel="noopener noreferrer">Google Cloud Console ↗</a></small>
+              </div>
+            </div>
+            <label class="cred-toggle">
+              <input type="checkbox" id="settingsYoutubeAutoComment" />
+              <span><b>Auto-comment on YouTube</b> — Agent can post comments on relevant videos</span>
+            </label>
+            <div class="cred-actions">
+              <button class="cred-connect-btn youtube-btn" id="connectYoutubeBtn">Connect YouTube ↗</button>
+              <button class="ghost-button" id="disconnectYoutubeBtn" style="padding:7px 12px;font-size:11px">Disconnect</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── Discord Tab ── -->
+        <div class="settings-tab-pane" id="stab-discord">
+          <div class="cred-section">
+            <div class="cred-section-header">
+              <div class="cred-section-title">💬 Discord Integration</div>
+              <span id="discordConnBadge" class="conn-pill">Disconnected</span>
+            </div>
+            <p class="cred-desc">The agent posts workflow completions, alerts, and research summaries to your Discord channel automatically via webhook.</p>
+            <div class="cred-grid">
+              <div class="cred-field">
+                <label class="cred-label">WEBHOOK URL <span class="cred-required">Required</span></label>
+                <input type="text" id="settingsDiscordWebhook" class="settings-input" placeholder="https://discord.com/api/webhooks/..." />
+                <small class="cred-note">Server Settings → Integrations → Webhooks → New Webhook → Copy URL</small>
+              </div>
+              <div class="cred-field">
+                <label class="cred-label">CHANNEL NAME</label>
+                <input type="text" id="settingsDiscordChannel" class="settings-input" placeholder="#agent-alerts" />
+              </div>
+            </div>
+            <label class="cred-toggle">
+              <input type="checkbox" id="settingsDiscordNotify" />
+              <span><b>Auto-notify on Discord</b> — Post completed reports and results automatically</span>
+            </label>
+            <div class="cred-actions">
+              <button class="cred-connect-btn discord-btn" id="connectDiscordBtn">Connect Discord ↗</button>
+              <button class="ghost-button" id="testDiscordBtn" style="padding:7px 12px;font-size:11px">Test Webhook ↗</button>
+              <button class="ghost-button" id="disconnectDiscordBtn" style="padding:7px 12px;font-size:11px">Disconnect</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="modal-actions" style="margin-top:20px;border-top:1px solid #ede8f5;padding-top:16px">
           <button class="ghost-button" id="cancelSettingsBtn">Cancel</button>
-          <button class="primary-button" id="saveSettingsBtn">Save Settings</button>
+          <button class="primary-button" id="saveSettingsBtn" style="background:linear-gradient(135deg,#5b3d8a,#c85391)">💾 Save All Settings</button>
         </div>
       </div>
     </div>

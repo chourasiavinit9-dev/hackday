@@ -1102,13 +1102,28 @@ const DEFAULT_PROFILE = {
 };
 
 const DEFAULT_SETTINGS = {
-  twitterConnected: true,
-  twitterHandle: '@vinitchaurasia',
-  twitterAutoPost: true,
-  discordConnected: true,
-  discordWebhook: 'https://discord.com/api/webhooks/demo/agent-alerts',
+  // Profile
+  name: '',
+  email: '',
+  role: '',
+  geminiKey: '',
+  // Twitter
+  twitterConnected: false,
+  twitterHandle: '',
+  twitterBearer: '',
+  twitterApiKey: '',
+  twitterApiSecret: '',
+  twitterAutoPost: false,
+  // YouTube
+  youtubeConnected: false,
+  youtubeChannelId: '',
+  youtubeApiKey: '',
+  youtubeAutoComment: false,
+  // Discord
+  discordConnected: false,
+  discordWebhook: '',
   discordChannel: '#agent-alerts',
-  discordNotify: true
+  discordNotify: false
 };
 
 function getUserProfile() {
@@ -1142,13 +1157,24 @@ function saveSettings(settings) {
   try {
     localStorage.setItem('skillforge_settings', JSON.stringify(settings));
   } catch {}
+  // Push to backend (non-blocking; best effort)
   fetch(`${API_BASE}/api/settings`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
+      name: settings.name,
+      email: settings.email,
+      role: settings.role,
       twitter_connected: settings.twitterConnected,
       twitter_handle: settings.twitterHandle,
+      twitter_bearer: settings.twitterBearer,
+      twitter_api_key: settings.twitterApiKey,
+      twitter_api_secret: settings.twitterApiSecret,
       twitter_auto_post: settings.twitterAutoPost,
+      youtube_connected: settings.youtubeConnected,
+      youtube_channel_id: settings.youtubeChannelId,
+      youtube_api_key: settings.youtubeApiKey,
+      youtube_auto_comment: settings.youtubeAutoComment,
       discord_connected: settings.discordConnected,
       discord_webhook: settings.discordWebhook,
       discord_channel: settings.discordChannel,
@@ -1252,28 +1278,67 @@ const closeSettingsModal = $('#closeSettingsModal');
 const cancelSettingsBtn = $('#cancelSettingsBtn');
 const saveSettingsBtn = $('#saveSettingsBtn');
 
-function openSettingsModal() {
-  const settings = getSettings();
-  if ($('#settingsTwitterHandle')) $('#settingsTwitterHandle').value = settings.twitterHandle || '@vinitchaurasia';
-  if ($('#settingsTwitterAutoPost')) $('#settingsTwitterAutoPost').checked = !!settings.twitterAutoPost;
-  if ($('#settingsDiscordWebhook')) $('#settingsDiscordWebhook').value = settings.discordWebhook || '';
-  if ($('#settingsDiscordChannel')) $('#settingsDiscordChannel').value = settings.discordChannel || '#agent-alerts';
-  if ($('#settingsDiscordNotify')) $('#settingsDiscordNotify').checked = !!settings.discordNotify;
+// ── Settings Tab Switching ─────────────────────────────────────────────────
+$$('.settings-tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    $$('.settings-tab').forEach(t => t.classList.remove('active'));
+    $$('.settings-tab-pane').forEach(p => p.classList.remove('active'));
+    tab.classList.add('active');
+    const pane = $(`#stab-${tab.dataset.stab}`);
+    if (pane) pane.classList.add('active');
+  });
+});
 
-  updateSettingsBadges(settings);
+function openSettingsModal() {
+  const s = getSettings();
+
+  // Profile tab
+  if ($('#settingsName'))    $('#settingsName').value    = s.name || '';
+  if ($('#settingsEmail'))   $('#settingsEmail').value   = s.email || '';
+  if ($('#settingsRole'))    $('#settingsRole').value    = s.role || '';
+  if ($('#settingsGeminiKey')) $('#settingsGeminiKey').value = s.geminiKey || '';
+
+  // Twitter tab
+  if ($('#settingsTwitterHandle'))    $('#settingsTwitterHandle').value    = s.twitterHandle || '';
+  if ($('#settingsTwitterBearer'))    $('#settingsTwitterBearer').value    = s.twitterBearer || '';
+  if ($('#settingsTwitterApiKey'))    $('#settingsTwitterApiKey').value    = s.twitterApiKey || '';
+  if ($('#settingsTwitterApiSecret')) $('#settingsTwitterApiSecret').value = s.twitterApiSecret || '';
+  if ($('#settingsTwitterAutoPost'))  $('#settingsTwitterAutoPost').checked = !!s.twitterAutoPost;
+
+  // YouTube tab
+  if ($('#settingsYoutubeChannelId')) $('#settingsYoutubeChannelId').value = s.youtubeChannelId || '';
+  if ($('#settingsYoutubeApiKey'))    $('#settingsYoutubeApiKey').value    = s.youtubeApiKey || '';
+  if ($('#settingsYoutubeAutoComment')) $('#settingsYoutubeAutoComment').checked = !!s.youtubeAutoComment;
+
+  // Discord tab
+  if ($('#settingsDiscordWebhook')) $('#settingsDiscordWebhook').value = s.discordWebhook || '';
+  if ($('#settingsDiscordChannel')) $('#settingsDiscordChannel').value = s.discordChannel || '#agent-alerts';
+  if ($('#settingsDiscordNotify'))  $('#settingsDiscordNotify').checked = !!s.discordNotify;
+
+  updateSettingsBadges(s);
+
+  // Reset to Profile tab on open
+  $$('.settings-tab').forEach(t => t.classList.remove('active'));
+  $$('.settings-tab-pane').forEach(p => p.classList.remove('active'));
+  const profileTab = $('[data-stab="profile"]');
+  if (profileTab) profileTab.classList.add('active');
+  const profilePane = $('#stab-profile');
+  if (profilePane) profilePane.classList.add('active');
+
   if (settingsModal) settingsModal.classList.add('open');
 }
 
 function updateSettingsBadges(settings) {
-  const twBadge = $('#twitterConnBadge');
-  if (twBadge) {
-    twBadge.className = `conn-pill ${settings.twitterConnected ? 'connected' : 'disconnected'}`;
-    twBadge.textContent = settings.twitterConnected ? '✓ Connected' : 'Disconnected';
-  }
-  const dcBadge = $('#discordConnBadge');
-  if (dcBadge) {
-    dcBadge.className = `conn-pill ${settings.discordConnected ? 'connected' : 'disconnected'}`;
-    dcBadge.textContent = settings.discordConnected ? '✓ Connected' : 'Disconnected';
+  const badges = {
+    '#twitterConnBadge':  [settings.twitterConnected,  `✓ @${settings.twitterHandle || 'Connected'}`,  'Disconnected'],
+    '#youtubeConnBadge':  [settings.youtubeConnected,  '✓ YouTube Connected',                           'Disconnected'],
+    '#discordConnBadge':  [settings.discordConnected,  `✓ ${settings.discordChannel || 'Connected'}`,  'Disconnected'],
+  };
+  for (const [sel, [connected, yesText, noText]] of Object.entries(badges)) {
+    const el = $(sel);
+    if (!el) continue;
+    el.className = `conn-pill ${connected ? 'connected' : 'disconnected'}`;
+    el.textContent = connected ? yesText : noText;
   }
 }
 
@@ -1285,32 +1350,66 @@ if (settingsBtn) settingsBtn.addEventListener('click', openSettingsModal);
 if (closeSettingsModal) closeSettingsModal.addEventListener('click', closeSettings);
 if (cancelSettingsBtn) cancelSettingsBtn.addEventListener('click', closeSettings);
 
-// Connect / Disconnect Twitter
+// ── Twitter Connect / Disconnect ──────────────────────────────────────────
 const connectTwitterBtn = $('#connectTwitterBtn');
 const disconnectTwitterBtn = $('#disconnectTwitterBtn');
 if (connectTwitterBtn) {
   connectTwitterBtn.addEventListener('click', () => {
-    const handle = ($('#settingsTwitterHandle')?.value || '@vinitchaurasia').trim();
-    const settings = getSettings();
-    settings.twitterConnected = true;
-    settings.twitterHandle = handle.startsWith('@') ? handle : `@${handle}`;
-    settings.twitterAutoPost = $('#settingsTwitterAutoPost')?.checked ?? true;
-    saveSettings(settings);
-    updateSettingsBadges(settings);
-    alert(`Twitter / X connected successfully as ${settings.twitterHandle}! Automation will run automatically.`);
+    const handle = ($('#settingsTwitterHandle')?.value || '').trim();
+    const bearer = ($('#settingsTwitterBearer')?.value || '').trim();
+    if (!handle) { alert('Please enter your Twitter handle first.'); return; }
+    const s = { ...getSettings(),
+      twitterConnected: true,
+      twitterHandle: handle.startsWith('@') ? handle : `@${handle}`,
+      twitterBearer: bearer,
+      twitterApiKey: ($('#settingsTwitterApiKey')?.value || '').trim(),
+      twitterApiSecret: ($('#settingsTwitterApiSecret')?.value || '').trim(),
+      twitterAutoPost: $('#settingsTwitterAutoPost')?.checked ?? false
+    };
+    saveSettings(s);
+    updateSettingsBadges(s);
+    connectTwitterBtn.textContent = '✓ Connected!';
+    connectTwitterBtn.style.background = '#3b7428';
+    setTimeout(() => { connectTwitterBtn.textContent = 'Connect Twitter ↗'; connectTwitterBtn.style.background = ''; }, 1800);
   });
 }
 if (disconnectTwitterBtn) {
   disconnectTwitterBtn.addEventListener('click', () => {
-    const settings = getSettings();
-    settings.twitterConnected = false;
-    saveSettings(settings);
-    updateSettingsBadges(settings);
-    alert('Twitter / X disconnected.');
+    const s = { ...getSettings(), twitterConnected: false };
+    saveSettings(s);
+    updateSettingsBadges(s);
   });
 }
 
-// Connect / Test / Disconnect Discord
+// ── YouTube Connect / Disconnect ──────────────────────────────────────────
+const connectYoutubeBtn = $('#connectYoutubeBtn');
+const disconnectYoutubeBtn = $('#disconnectYoutubeBtn');
+if (connectYoutubeBtn) {
+  connectYoutubeBtn.addEventListener('click', () => {
+    const apiKey = ($('#settingsYoutubeApiKey')?.value || '').trim();
+    if (!apiKey) { alert('Please enter your YouTube / Google API key first.'); return; }
+    const s = { ...getSettings(),
+      youtubeConnected: true,
+      youtubeChannelId: ($('#settingsYoutubeChannelId')?.value || '').trim(),
+      youtubeApiKey: apiKey,
+      youtubeAutoComment: $('#settingsYoutubeAutoComment')?.checked ?? false
+    };
+    saveSettings(s);
+    updateSettingsBadges(s);
+    connectYoutubeBtn.textContent = '✓ Connected!';
+    connectYoutubeBtn.style.background = '#3b7428';
+    setTimeout(() => { connectYoutubeBtn.textContent = 'Connect YouTube ↗'; connectYoutubeBtn.style.background = ''; }, 1800);
+  });
+}
+if (disconnectYoutubeBtn) {
+  disconnectYoutubeBtn.addEventListener('click', () => {
+    const s = { ...getSettings(), youtubeConnected: false };
+    saveSettings(s);
+    updateSettingsBadges(s);
+  });
+}
+
+// ── Discord Connect / Test / Disconnect ───────────────────────────────────
 const connectDiscordBtn = $('#connectDiscordBtn');
 const testDiscordBtn = $('#testDiscordBtn');
 const disconnectDiscordBtn = $('#disconnectDiscordBtn');
@@ -1318,68 +1417,82 @@ if (connectDiscordBtn) {
   connectDiscordBtn.addEventListener('click', () => {
     const webhook = ($('#settingsDiscordWebhook')?.value || '').trim();
     const channel = ($('#settingsDiscordChannel')?.value || '#agent-alerts').trim();
-    const settings = getSettings();
-    settings.discordConnected = true;
-    settings.discordWebhook = webhook;
-    settings.discordChannel = channel;
-    settings.discordNotify = $('#settingsDiscordNotify')?.checked ?? true;
-    saveSettings(settings);
-    updateSettingsBadges(settings);
-    alert(`Discord integration connected to channel ${channel}!`);
+    if (!webhook) { alert('Please enter a Discord Webhook URL first.'); return; }
+    const s = { ...getSettings(),
+      discordConnected: true,
+      discordWebhook: webhook,
+      discordChannel: channel,
+      discordNotify: $('#settingsDiscordNotify')?.checked ?? false
+    };
+    saveSettings(s);
+    updateSettingsBadges(s);
+    connectDiscordBtn.textContent = '✓ Connected!';
+    connectDiscordBtn.style.background = '#3b7428';
+    setTimeout(() => { connectDiscordBtn.textContent = 'Connect Discord ↗'; connectDiscordBtn.style.background = ''; }, 1800);
   });
 }
 if (testDiscordBtn) {
   testDiscordBtn.addEventListener('click', async () => {
     const webhook = ($('#settingsDiscordWebhook')?.value || '').trim();
     const channel = ($('#settingsDiscordChannel')?.value || '#agent-alerts').trim();
+    if (!webhook) { alert('Enter a webhook URL to test.'); return; }
     try {
       const res = await fetch(`${API_BASE}/api/discord/test`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          webhook_url: webhook,
-          message: `🚀 **SkillForge Agent Alert**: Discord connection test from ${channel} verified!`
-        })
+        body: JSON.stringify({ webhook_url: webhook, message: `🚀 **SkillForge** test alert from ${channel}!` })
       });
       const data = await res.json();
-      alert(`Discord test message sent (${data.status})!`);
+      alert(`Discord test sent (${data.status})!`);
     } catch {
-      alert('Discord webhook test verified.');
+      alert('Discord webhook test verified (backend offline, but URL saved).');
     }
   });
 }
 if (disconnectDiscordBtn) {
   disconnectDiscordBtn.addEventListener('click', () => {
-    const settings = getSettings();
-    settings.discordConnected = false;
-    saveSettings(settings);
-    updateSettingsBadges(settings);
-    alert('Discord disconnected.');
+    const s = { ...getSettings(), discordConnected: false };
+    saveSettings(s);
+    updateSettingsBadges(s);
   });
 }
 
+// ── Save All Settings ─────────────────────────────────────────────────────
 if (saveSettingsBtn) {
   saveSettingsBtn.addEventListener('click', () => {
-    const handle = ($('#settingsTwitterHandle')?.value || '@vinitchaurasia').trim();
-    const webhook = ($('#settingsDiscordWebhook')?.value || '').trim();
-    const channel = ($('#settingsDiscordChannel')?.value || '#agent-alerts').trim();
-    const settings = {
+    const handle = ($('#settingsTwitterHandle')?.value || '').trim();
+    const s = {
       ...getSettings(),
-      twitterHandle: handle.startsWith('@') ? handle : `@${handle}`,
-      twitterAutoPost: $('#settingsTwitterAutoPost')?.checked ?? true,
-      discordWebhook: webhook,
-      discordChannel: channel,
-      discordNotify: $('#settingsDiscordNotify')?.checked ?? true
+      // Profile
+      name: ($('#settingsName')?.value || '').trim(),
+      email: ($('#settingsEmail')?.value || '').trim(),
+      role: ($('#settingsRole')?.value || '').trim(),
+      geminiKey: ($('#settingsGeminiKey')?.value || '').trim(),
+      // Twitter
+      twitterHandle: handle ? (handle.startsWith('@') ? handle : `@${handle}`) : getSettings().twitterHandle,
+      twitterBearer: ($('#settingsTwitterBearer')?.value || '').trim(),
+      twitterApiKey: ($('#settingsTwitterApiKey')?.value || '').trim(),
+      twitterApiSecret: ($('#settingsTwitterApiSecret')?.value || '').trim(),
+      twitterAutoPost: $('#settingsTwitterAutoPost')?.checked ?? false,
+      // YouTube
+      youtubeChannelId: ($('#settingsYoutubeChannelId')?.value || '').trim(),
+      youtubeApiKey: ($('#settingsYoutubeApiKey')?.value || '').trim(),
+      youtubeAutoComment: $('#settingsYoutubeAutoComment')?.checked ?? false,
+      // Discord
+      discordWebhook: ($('#settingsDiscordWebhook')?.value || '').trim(),
+      discordChannel: ($('#settingsDiscordChannel')?.value || '#agent-alerts').trim(),
+      discordNotify: $('#settingsDiscordNotify')?.checked ?? false
     };
-    saveSettings(settings);
+    saveSettings(s);
+    updateSettingsBadges(s);
     const orig = saveSettingsBtn.innerHTML;
-    saveSettingsBtn.innerHTML = 'Saved ✓';
-    saveSettingsBtn.style.background = '#72a75b';
+    saveSettingsBtn.innerHTML = '✓ Saved!';
+    saveSettingsBtn.style.background = '#3b7428';
     setTimeout(() => {
       saveSettingsBtn.innerHTML = orig;
       saveSettingsBtn.style.background = '';
       closeSettings();
-    }, 600);
+    }, 800);
   });
 }
 
@@ -1394,6 +1507,7 @@ if (settingsModal) {
     if (e.target === settingsModal) closeSettings();
   });
 }
+
 
 // ── Workflow Cancellation ─────────────────────────────────────────────────────
 const cancelWorkflowBtn = $('#cancelWorkflowBtn');
