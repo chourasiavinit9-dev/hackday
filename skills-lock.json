@@ -1,0 +1,77 @@
+{
+  "version": 1,
+  "skills": {
+    "ai-services": {
+      "source": "digitalocean-labs/do-app-platform-skills",
+      "sourceType": "github",
+      "skillPath": "skills/ai-services/SKILL.md",
+      "computedHash": "78f6513613ca8c5243bfe0daa59276eeca9161aa07ce6f4b95a541e620ba0b70"
+    },
+    "app-platform-designer": {
+      "source": "digitalocean-labs/do-app-platform-skills",
+      "sourceType": "github",
+      "skillPath": "skills/designer/SKILL.md",
+      "computedHash": "3a794dc21d4acea5f0b69b381a660a7c511f08c9bc8564b0a3e5ef968cefe434"
+    },
+    "app-platform-migration": {
+      "source": "digitalocean-labs/do-app-platform-skills",
+      "sourceType": "github",
+      "skillPath": "skills/migration/SKILL.md",
+      "computedHash": "6af95a1b371ebc03e83d5b8a5853a96b18f7df2cb5ab3311f033c4a596a0cf01"
+    },
+    "app-platform-networking": {
+      "source": "digitalocean-labs/do-app-platform-skills",
+      "sourceType": "github",
+      "skillPath": "skills/networking/SKILL.md",
+      "computedHash": "d54cb443886961b37b99ce27778b4f6502ba9d7d9d416a1d6ee45c998cb7928a"
+    },
+    "app-platform-sandbox": {
+      "source": "digitalocean-labs/do-app-platform-skills",
+      "sourceType": "github",
+      "skillPath": "skills/sandbox/SKILL.md",
+      "computedHash": "baf12b60dec9c445f94060f5e8eefabc8dd95bb0d9e6a53867ebaa06e1353d66"
+    },
+    "app-platform-troubleshooting": {
+      "source": "digitalocean-labs/do-app-platform-skills",
+      "sourceType": "github",
+      "skillPath": "skills/troubleshooting/SKILL.md",
+      "computedHash": "fdc3f276f74aef2dbd2540bfd1e5df2d43e5acdf2f3e39fae53663f325f5604f"
+    },
+    "deployment": {
+      "source": "digitalocean-labs/do-app-platform-skills",
+      "sourceType": "github",
+      "skillPath": "skills/deployment/SKILL.md",
+      "computedHash": "7889ee5ede98a8998e431a525915ead2b4bc45ef9a1b5e4845376d06a44a43ad"
+    },
+    "devcontainers": {
+      "source": "digitalocean-labs/do-app-platform-skills",
+      "sourceType": "github",
+      "skillPath": "skills/devcontainers/SKILL.md",
+      "computedHash": "a0c06c85a225424dd521ab0da16cc53711ad45f7ce7b02b0a738e4ad1ba5c3c6"
+    },
+    "managed-db-services": {
+      "source": "digitalocean-labs/do-app-platform-skills",
+      "sourceType": "github",
+      "skillPath": "skills/managed-db-services/SKILL.md",
+      "computedHash": "08fa64c0daa1bf3670bb56577fb0cab6dd13bd9cd672d15d8d1acdfedfc6f052"
+    },
+    "planner": {
+      "source": "digitalocean-labs/do-app-platform-skills",
+      "sourceType": "github",
+      "skillPath": "skills/planner/SKILL.md",
+      "computedHash": "68eac59ac8e9f7f32407eb84efa9ff951cfde3d047da1e8443618d2dd6d136d6"
+    },
+    "postgres": {
+      "source": "digitalocean-labs/do-app-platform-skills",
+      "sourceType": "github",
+      "skillPath": "skills/postgres/SKILL.md",
+      "computedHash": "2704df1bf29e41d24e729b1ce445252193f87ca36873d1feba27e923faba3425"
+    },
+    "spaces": {
+      "source": "digitalocean-labs/do-app-platform-skills",
+      "sourceType": "github",
+      "skillPath": "skills/spaces/SKILL.md",
+      "computedHash": "9c0c3fd11c1bc996a2ad19dee30525151a9fd6e05f8f8e0ab1f15f35fdd08268"
+    }
+  }
+}

@@ -49,16 +49,17 @@ get a mentorship session on what to build in a time-constrained environment.
 4. **Call `generate_project_timeline`** — Pass the scoped project name and
    features. Return a precise hour-by-hour battle clock.
 
-5. **Call `generate_readme_template`** — Generate a complete README.md with
-   Mermaid architecture diagram. Output it as a code block the user can copy.
+5. **Call `generate_readme_template` & `generate_digitalocean_spec`** — Generate
+   a competition-ready README.md with Mermaid architecture and a production-ready
+   DigitalOcean App Platform specification (.do/app.yaml) for deployment.
 
 6. **Final output** — A complete plan: MVP scope, battle clock, judging
    strategy mapped to MLH rubric (Technology/Design/Completion/Learning),
-   and the README.md template.
+   the README.md template, and the DigitalOcean deployment specification.
 
 ## Rules
-- Never hallucinate tools. Only call the three registered tools.
+- Never hallucinate tools. Only call registered tools.
 - Always show Thinking Mode reasoning before final output — transparency is the feature.
 - Never recommend building something that cannot demo in 60 seconds.
-- Always output the README.md template as a final step.
+- Always output the README.md template and DigitalOcean deployment spec.
 - Code must be open-source (MIT) and pushed to a public GitHub repo.

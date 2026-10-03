@@ -151,6 +151,37 @@ TOOLS = [
             },
             "required": ["image_path"]
         }
+    },
+    {
+        "name": "generate_digitalocean_spec",
+        "description": (
+            "Generate a production-ready DigitalOcean App Platform specification (.do/app.yaml) "
+            "for one-click deployment. Supports web services, managed PostgreSQL, Redis, "
+            "Spaces object storage, and DigitalOcean Gradient AI serverless inference."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "project_name": {
+                    "type": "string",
+                    "description": "Name of the application/project"
+                },
+                "services": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "List of resources needed: web, postgres, redis, spaces, gradient_ai"
+                },
+                "repo_slug": {
+                    "type": "string",
+                    "description": "GitHub repo slug, e.g. chourasiavinit9-dev/hackguide"
+                },
+                "region": {
+                    "type": "string",
+                    "description": "DigitalOcean datacenter region (blr, nyc, sfo, fra, ams)"
+                }
+            },
+            "required": ["project_name"]
+        }
     }
 ]
 
@@ -315,6 +346,57 @@ MIT — see [LICENSE](LICENSE)
 """
 
 
+def generate_digitalocean_spec(
+    project_name: str,
+    services: list[str] = None,
+    repo_slug: str = "chourasiavinit9-dev/hackguide",
+    region: str = "blr"
+) -> str:
+    """Generate production-ready DigitalOcean App Platform spec (.do/app.yaml)."""
+    services = [s.lower() for s in (services or ["web", "postgres"])]
+    clean_name = project_name.lower().replace(" ", "-")
+
+    yaml_lines = [
+        f"name: {clean_name}",
+        f"region: {region}",
+        "services:",
+        f"  - name: {clean_name}-api",
+        "    github:",
+        f"      repo: {repo_slug}",
+        "      branch: main",
+        "      deploy_on_push: true",
+        "    build_command: pip install -r requirements.txt",
+        "    run_command: python main.py",
+        "    http_port: 8080",
+        "    instance_count: 1",
+        "    instance_size_slug: basic-xxs",
+        "    routes:",
+        "      - path: /",
+        "    envs:",
+        "      - key: GEMINI_API_KEY",
+        "        scope: RUN_TIME",
+        "        type: SECRET",
+        "      - key: GEMMA_MODEL",
+        "        value: gemma-4-31b-it",
+        "        scope: RUN_TIME",
+        "      - key: MULTIMODAL_MODEL",
+        "        value: gemini-3.8-flash",
+        "        scope: RUN_TIME",
+    ]
+
+    if "postgres" in services:
+        yaml_lines.extend([
+            "databases:",
+            f"  - name: {clean_name}-db",
+            "    engine: PG",
+            "    version: '16'",
+            "    production: false",
+            "    cluster_name: hackathon-cluster",
+        ])
+
+    return "\n".join(yaml_lines)
+
+
 # ── Tool dispatcher ────────────────────────────────────────────────────────────
 def run_tool(tool_name: str, args: dict) -> str:
     """Dispatch a Gemma 4 tool_call to the correct Python function."""
@@ -334,9 +416,12 @@ def run_tool(tool_name: str, args: dict) -> str:
         elif tool_name == "analyze_architecture_image":
             from multimodal import analyze_architecture_image
             result = analyze_architecture_image(**args)
+        elif tool_name == "generate_digitalocean_spec":
+            result = generate_digitalocean_spec(**args)
         else:
             result = {"error": f"Unknown tool: {tool_name}"}
     except Exception as e:
         result = {"error": str(e)}
 
     return json.dumps(result, indent=2) if isinstance(result, dict) else result
+

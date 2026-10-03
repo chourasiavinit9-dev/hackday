@@ -36,6 +36,7 @@ graph TD
 | --- | --- |
 | Gemma 4 (Apache 2.0) | Core reasoning engine — Thinking Mode + native tool calling |
 | Gemini Multimodal API | Audio (voice-to-text), video demo review, and image analysis |
+| DigitalOcean App Platform | One-click production deployment (.do/app.yaml) & Postgres/Spaces |
 | Google Generative AI SDK | API interface to Gemma & Gemini |
 | Python 3.11+ | Agent orchestration & CLI |
 | Rich | Streaming terminal UI & chain-of-thought traces |

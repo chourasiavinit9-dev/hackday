@@ -74,13 +74,15 @@ Your capabilities include:
 2. Voice & audio pitch transcription via transcribe_pitch_audio.
 3. Hackathon demo video auditing against the MLH rubric via review_demo_video.
 4. Architecture sketch & whiteboard analysis via analyze_architecture_image.
+5. DigitalOcean App Platform spec generation via generate_digitalocean_spec (.do/app.yaml).
 
 Your workflow when helping a user plan their hack:
 1. Ask for: challenge track, team size, hours available, tech stack (or review their voice pitch/demo video).
 2. Call analyze_project_feasibility → determine safe MVP scope.
 3. Call generate_project_timeline → build the battle clock.
 4. Call generate_readme_template → output competition-ready README.
-5. Give a final 2-sentence summary of the winning strategy.
+5. Call generate_digitalocean_spec → output .do/app.yaml for one-click DigitalOcean deployment.
+6. Give a final 2-sentence summary of the winning strategy.
 
 You support native Gemma 4 tool calling. Use tools — do not hallucinate results.
 Always show your reasoning before giving the final plan.
@@ -242,12 +244,13 @@ def show_help():
     console.print(Panel(
         "[bold cyan]Available Commands:[/bold cyan]\n"
         "• [bold]Natural Language:[/bold] Type your team size, available hours, stack, and idea\n"
-        "• [bold]/voice <path>[/bold]  : Voice-to-text pitch transcription & instant MVP scoping\n"
-        "• [bold]/video <path>[/bold]  : Audit demo video against MLH Rubric (60-sec pitch check)\n"
-        "• [bold]/image <path>[/bold]  : Analyze architecture whiteboard or wireframe diagram\n"
-        "• [bold]/model <name>[/bold]  : Change active model (e.g., gemma-4-27b-it, gemini-2.0-flash)\n"
-        "• [bold]/test[/bold]          : Run setup & model diagnostics\n"
-        "• [bold]exit / quit[/bold]    : Exit HackGuide",
+        "• [bold]/voice <path>[/bold]   : Voice-to-text pitch transcription & instant MVP scoping\n"
+        "• [bold]/video <path>[/bold]   : Audit demo video against MLH Rubric (60-sec pitch check)\n"
+        "• [bold]/image <path>[/bold]   : Analyze architecture whiteboard or wireframe diagram\n"
+        "• [bold]/do[/bold]            : Generate DigitalOcean App Platform spec (.do/app.yaml)\n"
+        "• [bold]/model <name>[/bold]   : Change active model (e.g., gemma-4-31b-it, gemini-3.8-flash)\n"
+        "• [bold]/test[/bold]           : Run setup & model diagnostics\n"
+        "• [bold]exit / quit[/bold]     : Exit HackGuide",
         title="HackGuide Commands",
         border_style="cyan"
     ))
@@ -302,6 +305,16 @@ def main():
             new_model = user_input.split(" ", 1)[1].strip()
             ACTIVE_MODEL = new_model
             console.print(f"[green]Active model switched to: [bold]{ACTIVE_MODEL}[/bold][/green]")
+            continue
+
+        if user_input.startswith(("/do", "/deploy")):
+            from tools import generate_digitalocean_spec
+            spec = generate_digitalocean_spec(project_name="hackguide", services=["web", "postgres", "spaces"])
+            os.makedirs(".do", exist_ok=True)
+            with open(".do/app.yaml", "w") as f:
+                f.write(spec)
+            console.print(Panel(spec, title="[bold blue]🌊 DigitalOcean App Platform Spec (.do/app.yaml)[/bold blue]", border_style="blue"))
+            console.print("[green]✔ Generated and saved to [bold].do/app.yaml[/bold] for one-click deployment![/green]")
             continue
 
         if user_input.startswith(("/voice", "/audio", "/video", "/image")):
