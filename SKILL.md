@@ -15,6 +15,8 @@ capabilities:
   - generate-text
   - call-tools
   - read-files
+  - process-audio
+  - process-video
 execution:
   timeout: 60
   longRunning: false

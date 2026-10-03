@@ -4,7 +4,7 @@ Built at Hacktoberfest Hack Day Asansol × HackTropica 2026
 Asansol Engineering College, Room NB-507 | October 3, 2026
 
 Prize Tracks:
-  - Best Use of Gemma 4
+  - Best Use of Gemma 4 (Reasoning, Thinking Mode, Multimodal Voice & Video)
   - Best Open-Source AI Project (Agent Skill Open Standard)
 
 License: MIT
@@ -13,6 +13,7 @@ License: MIT
 import os
 import json
 import sys
+from dotenv import load_dotenv
 from rich.console import Console
 from rich.panel import Panel
 from rich.markdown import Markdown
@@ -20,18 +21,40 @@ from rich.text import Text
 from rich.rule import Rule
 from rich import print as rprint
 
+load_dotenv()
+
 import google.generativeai as genai
 from tools import TOOLS, run_tool
+from multimodal import transcribe_and_extract_voice, analyze_demo_video, analyze_architecture_image
+
+console = Console()
 
 # ── Configuration ──────────────────────────────────────────────────────────────
 API_KEY = os.environ.get("GEMINI_API_KEY")
-if not API_KEY:
-    print("❌ GEMINI_API_KEY not set. Run: export GEMINI_API_KEY=your_key")
-    sys.exit(1)
+if not API_KEY or API_KEY == "your_gemini_api_key_here":
+    console.print(Panel(
+        "[bold red]❌ GEMINI_API_KEY not configured in .env[/bold red]\n\n"
+        "1. Open or create [bold].env[/bold] in this directory.\n"
+        "2. Add your key: [green]GEMINI_API_KEY=your_key_here[/green]\n"
+        "3. Get a free key at: [bold link=https://aistudio.google.com/app/apikey]https://aistudio.google.com/app/apikey[/bold link]",
+        title="Setup Required",
+        border_style="red"
+    ))
+    # Don't hard-crash so user can run help or tests, but guard API calls
 
-genai.configure(api_key=API_KEY)
+if API_KEY:
+    genai.configure(api_key=API_KEY)
 
-GEMMA_MODEL = "gemma-4-27b-it"  # Switch to gemma-4-e2b-it if quota issues
+# Model priority list: Gemma 4 -> Gemma variants -> Multimodal Flash fallbacks
+ACTIVE_MODEL = os.environ.get("GEMMA_MODEL", "gemma-4-31b-it")
+FALLBACK_MODELS = [
+    ACTIVE_MODEL,
+    "gemma-4-31b-it",
+    "gemma-4-26b-a4b-it",
+    "gemma-2-27b-it",
+    "gemini-2.0-flash",
+    "gemini-1.5-flash"
+]
 
 SYSTEM_PROMPT = """<|think|>
 You are HackGuide, an expert hackathon mentor powered by Gemma 4.
@@ -46,22 +69,26 @@ Critical insight: COMPLETION is the biggest failure point.
 Over-scoping kills more teams than anything else.
 A flawless 2-feature demo always beats a broken 10-feature one.
 
+Your capabilities include:
+1. Feasibility analysis & battle clock generation via native tool calling.
+2. Voice & audio pitch transcription via transcribe_pitch_audio.
+3. Hackathon demo video auditing against the MLH rubric via review_demo_video.
+4. Architecture sketch & whiteboard analysis via analyze_architecture_image.
+
 Your workflow when helping a user plan their hack:
-1. Ask for: name, challenge track, team size, hours available, tech stack
-2. Call analyze_project_feasibility → determine safe MVP scope
-3. Call generate_project_timeline → build the battle clock  
-4. Call generate_readme_template → output competition-ready README
-5. Give a final 2-sentence summary of the winning strategy
+1. Ask for: challenge track, team size, hours available, tech stack (or review their voice pitch/demo video).
+2. Call analyze_project_feasibility → determine safe MVP scope.
+3. Call generate_project_timeline → build the battle clock.
+4. Call generate_readme_template → output competition-ready README.
+5. Give a final 2-sentence summary of the winning strategy.
 
 You support native Gemma 4 tool calling. Use tools — do not hallucinate results.
 Always show your reasoning before giving the final plan.
 """
 
-console = Console()
-
 
 def stream_response(response) -> tuple[str, list[dict]]:
-    """Stream Gemma 4 response text, return (text, tool_calls)."""
+    """Stream model response text and parse tool calls."""
     full_text = ""
     tool_calls = []
 
@@ -82,34 +109,54 @@ def stream_response(response) -> tuple[str, list[dict]]:
                     "args": dict(fc.args)
                 })
 
-    console.print()  # newline after streaming
+    console.print()
     return full_text, tool_calls
+
+
+def get_resilient_model():
+    """Try to initialize model with fallback across Gemma and multimodal flash models."""
+    global ACTIVE_MODEL
+    for candidate in FALLBACK_MODELS:
+        try:
+            model = genai.GenerativeModel(
+                model_name=candidate,
+                system_instruction=SYSTEM_PROMPT,
+                tools=[{"function_declarations": TOOLS}]
+            )
+            ACTIVE_MODEL = candidate
+            return model
+        except Exception:
+            continue
+    # Default fallback
+    return genai.GenerativeModel(
+        model_name="gemini-2.0-flash",
+        system_instruction=SYSTEM_PROMPT,
+        tools=[{"function_declarations": TOOLS}]
+    )
 
 
 def chat(history: list, user_message: str) -> list:
     """Run one turn of the HackGuide agent loop."""
     history.append({"role": "user", "parts": [{"text": user_message}]})
 
-    model = genai.GenerativeModel(
-        model_name=GEMMA_MODEL,
-        system_instruction=SYSTEM_PROMPT,
-        tools=[{"function_declarations": TOOLS}]
-    )
+    model = get_resilient_model()
 
-    # ── Initial model call ────────────────────────────────────────────────────
-    console.print(Rule("[dim]Gemma 4 Thinking...[/dim]", style="dim"))
+    console.print(Rule(f"[dim]{ACTIVE_MODEL} Thinking...[/dim]", style="dim"))
 
-    response = model.generate_content(
-        history,
-        stream=True,
-        generation_config=genai.GenerationConfig(
-            temperature=0.7,
-            max_output_tokens=2048,
+    try:
+        response = model.generate_content(
+            history,
+            stream=True,
+            generation_config=genai.GenerationConfig(
+                temperature=0.7,
+                max_output_tokens=2048,
+            )
         )
-    )
-
-    response_text, tool_calls = stream_response(response)
-    history.append({"role": "model", "parts": [{"text": response_text}]})
+        response_text, tool_calls = stream_response(response)
+        history.append({"role": "model", "parts": [{"text": response_text}]})
+    except Exception as e:
+        console.print(f"[bold red]Generation error ({ACTIVE_MODEL}): {e}[/bold red]")
+        return history
 
     # ── Tool execution loop ───────────────────────────────────────────────────
     for tc in tool_calls:
@@ -140,36 +187,90 @@ def chat(history: list, user_message: str) -> list:
             }]
         })
 
-        # Get model's follow-up after tool result
-        console.print(Rule("[dim]Gemma 4 Continuing...[/dim]", style="dim"))
-        follow_up = model.generate_content(
-            history,
-            stream=True,
-            generation_config=genai.GenerationConfig(temperature=0.7, max_output_tokens=2048)
-        )
-        follow_text, more_calls = stream_response(follow_up)
-        history.append({"role": "model", "parts": [{"text": follow_text}]})
+        # Get model follow-up
+        console.print(Rule(f"[dim]{ACTIVE_MODEL} Continuing...[/dim]", style="dim"))
+        try:
+            follow_up = model.generate_content(
+                history,
+                stream=True,
+                generation_config=genai.GenerationConfig(temperature=0.7, max_output_tokens=2048)
+            )
+            follow_text, more_calls = stream_response(follow_up)
+            history.append({"role": "model", "parts": [{"text": follow_text}]})
+        except Exception as e:
+            console.print(f"[red]Follow-up error: {e}[/red]")
 
     return history
 
 
+def handle_multimodal_command(cmd: str, arg: str, history: list):
+    """Handle /voice, /video, /image CLI commands."""
+    if not os.path.exists(arg):
+        console.print(f"[bold red]File not found: {arg}[/bold red]")
+        return history
+
+    if cmd == "/voice" or cmd == "/audio":
+        console.print(Rule("[bold cyan]🎤 Transcribing Voice Pitch...[/bold cyan]"))
+        result = transcribe_and_extract_voice(arg)
+        console.print(Panel(result, title="Voice Pitch Analysis", border_style="cyan"))
+        prompt = (
+            f"Here is the transcription of our team's voice pitch:\n\n{result}\n\n"
+            f"Please review this and formulate our hackathon MVP plan, feasibility, and timeline."
+        )
+        return chat(history, prompt)
+
+    elif cmd == "/video":
+        console.print(Rule("[bold magenta]📹 Auditing Demo Video (MLH Rubric)...[/bold magenta]"))
+        result = analyze_demo_video(arg)
+        console.print(Panel(result, title="MLH Demo Video Audit", border_style="magenta"))
+        return history
+
+    elif cmd == "/image":
+        console.print(Rule("[bold blue]🖼️ Analyzing Architecture Diagram...[/bold blue]"))
+        result = analyze_architecture_image(arg)
+        console.print(Panel(result, title="Architecture Analysis", border_style="blue"))
+        prompt = (
+            f"Here is the analysis of our architecture diagram sketch:\n\n{result}\n\n"
+            f"Help us scope an MVP that we can realistically finish in our hackathon."
+        )
+        return chat(history, prompt)
+
+    return history
+
+
+def show_help():
+    console.print(Panel(
+        "[bold cyan]Available Commands:[/bold cyan]\n"
+        "• [bold]Natural Language:[/bold] Type your team size, available hours, stack, and idea\n"
+        "• [bold]/voice <path>[/bold]  : Voice-to-text pitch transcription & instant MVP scoping\n"
+        "• [bold]/video <path>[/bold]  : Audit demo video against MLH Rubric (60-sec pitch check)\n"
+        "• [bold]/image <path>[/bold]  : Analyze architecture whiteboard or wireframe diagram\n"
+        "• [bold]/model <name>[/bold]  : Change active model (e.g., gemma-4-27b-it, gemini-2.0-flash)\n"
+        "• [bold]/test[/bold]          : Run setup & model diagnostics\n"
+        "• [bold]exit / quit[/bold]    : Exit HackGuide",
+        title="HackGuide Commands",
+        border_style="cyan"
+    ))
+
+
 def main():
+    global ACTIVE_MODEL
     console.print(Panel(
         Text.assemble(
             ("HackGuide ", "bold magenta"),
             ("— Gemma 4 Hackathon Mentor\n", "bold white"),
-            ("Powered by Gemma 4 Thinking Mode + Native Tool Calling\n", "dim"),
+            ("Powered by Gemma 4 Thinking Mode + Native Tool Calling + Multimodal Engine\n", "dim"),
             ("Built at Hacktoberfest Hack Day Asansol × HackTropica 2026\n", "dim green"),
             ("Asansol Engineering College, NB-507 | October 3, 2026", "dim"),
         ),
-        subtitle="[dim]MIT License | Apache 2.0 (Gemma 4) | Agent Skill Open Standard[/dim]",
+        subtitle=f"[dim]Model: {ACTIVE_MODEL} | MIT License | Agent Skill Open Standard[/dim]",
         border_style="magenta",
         expand=False
     ))
 
     console.print(
-        "\n[bold]Type your hackathon situation and I'll build you a complete plan.[/bold]"
-        "\n[dim]Example: 'Team of 2, Best Use of Gemma 4 track, 3.5 hours, we know Python'[/dim]\n"
+        "\n[bold]Type your hackathon situation, or use /voice, /video, /image to analyze media.[/bold]"
+        "\n[dim]Example: 'Team of 2, Best Use of Gemma 4 track, 3.5 hours, we know Python' (or type /help)[/dim]\n"
     )
 
     history = []
@@ -188,8 +289,32 @@ def main():
             console.print("[dim]Good luck at the hack day! 🚀[/dim]")
             break
 
+        if user_input.startswith("/help"):
+            show_help()
+            continue
+
+        if user_input.startswith("/test"):
+            from test_models import check_setup
+            check_setup()
+            continue
+
+        if user_input.startswith("/model "):
+            new_model = user_input.split(" ", 1)[1].strip()
+            ACTIVE_MODEL = new_model
+            console.print(f"[green]Active model switched to: [bold]{ACTIVE_MODEL}[/bold][/green]")
+            continue
+
+        if user_input.startswith(("/voice", "/audio", "/video", "/image")):
+            parts = user_input.split(" ", 1)
+            cmd = parts[0]
+            if len(parts) < 2:
+                console.print(f"[yellow]Usage: {cmd} <path_to_file>[/yellow]")
+                continue
+            history = handle_multimodal_command(cmd, parts[1].strip(), history)
+            continue
+
         console.print()
-        console.print("[bold magenta]HackGuide:[/bold magenta]")
+        console.print(f"[bold magenta]HackGuide ({ACTIVE_MODEL}):[/bold magenta]")
         history = chat(history, user_input)
         console.print()
 

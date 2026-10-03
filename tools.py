@@ -100,6 +100,57 @@ TOOLS = [
             },
             "required": ["project_name", "description", "tech_stack"]
         }
+    },
+    {
+        "name": "transcribe_pitch_audio",
+        "description": (
+            "Transcribe and analyze a spoken audio pitch or voice note from a hackathon team. "
+            "Extracts project requirements, team constraints, problem statement, and scope."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "audio_path": {
+                    "type": "string",
+                    "description": "Path to the audio file (.mp3, .wav, .m4a, .ogg)"
+                }
+            },
+            "required": ["audio_path"]
+        }
+    },
+    {
+        "name": "review_demo_video",
+        "description": (
+            "Analyze a hackathon demo or pitch rehearsal video (.mp4, .mov, .webm) against "
+            "the MLH Judging Rubric (Completion, Technology, Design, Learning) and 60-second pitch rules."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "video_path": {
+                    "type": "string",
+                    "description": "Path to the video file (.mp4, .mov, .webm)"
+                }
+            },
+            "required": ["video_path"]
+        }
+    },
+    {
+        "name": "analyze_architecture_image",
+        "description": (
+            "Analyze an architecture diagram, whiteboard sketch, or UI wireframe image "
+            "to extract system components and identify potential hackathon implementation risks."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "image_path": {
+                    "type": "string",
+                    "description": "Path to the image file (.png, .jpg, .webp)"
+                }
+            },
+            "required": ["image_path"]
+        }
     }
 ]
 
@@ -274,6 +325,15 @@ def run_tool(tool_name: str, args: dict) -> str:
             result = generate_project_timeline(**args)
         elif tool_name == "generate_readme_template":
             result = generate_readme_template(**args)
+        elif tool_name == "transcribe_pitch_audio":
+            from multimodal import transcribe_and_extract_voice
+            result = transcribe_and_extract_voice(**args)
+        elif tool_name == "review_demo_video":
+            from multimodal import analyze_demo_video
+            result = analyze_demo_video(**args)
+        elif tool_name == "analyze_architecture_image":
+            from multimodal import analyze_architecture_image
+            result = analyze_architecture_image(**args)
         else:
             result = {"error": f"Unknown tool: {tool_name}"}
     except Exception as e:

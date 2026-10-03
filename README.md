@@ -16,16 +16,17 @@ Asansol Engineering College, Room NB-507 | October 3, 2026
 
 ```mermaid
 graph TD
-    User-->|natural language|Agent[HackGuide Agent]
-    Agent-->|system: think|Gemma4[Gemma 4 — Thinking Mode]
+    User-->|text / voice / video / image|Agent[HackGuide Agent]
+    Agent-->|system: think|Gemma4[Gemma 4 & Multimodal Engine]
     Gemma4-->|tool_call token|Dispatcher[Tool Dispatcher]
     Dispatcher-->F1[analyze_project_feasibility]
     Dispatcher-->F2[generate_project_timeline]
     Dispatcher-->F3[generate_readme_template]
-    F1-->|result|Gemma4
-    F2-->|result|Gemma4
-    F3-->|result|Gemma4
-    Gemma4-->|streaming response|UI[Rich Terminal UI]
+    Dispatcher-->F4[transcribe_pitch_audio]
+    Dispatcher-->F5[review_demo_video]
+    Dispatcher-->F6[analyze_architecture_image]
+    F1 & F2 & F3 & F4 & F5 & F6-->|result|Gemma4
+    Gemma4-->|streaming reasoning & plan|UI[Rich Terminal UI]
     UI-->User
 ```
 
@@ -34,9 +35,10 @@ graph TD
 | Technology | Role |
 | --- | --- |
 | Gemma 4 (Apache 2.0) | Core reasoning engine — Thinking Mode + native tool calling |
-| Google Generative AI SDK | API interface to Gemma 4 |
-| Python 3.11+ | Agent orchestration |
-| Rich | Streaming terminal UI |
+| Gemini Multimodal API | Audio (voice-to-text), video demo review, and image analysis |
+| Google Generative AI SDK | API interface to Gemma & Gemini |
+| Python 3.11+ | Agent orchestration & CLI |
+| Rich | Streaming terminal UI & chain-of-thought traces |
 | PyYAML | SKILL.md frontmatter parsing |
 | Agent Skill Open Standard | Modular skill architecture (SKILL.md) |
 
