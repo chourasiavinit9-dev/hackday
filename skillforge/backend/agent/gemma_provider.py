@@ -405,7 +405,10 @@ class GemmaProvider:
         elif wants_twitter:
             steps.append({"tool": "twitter_search", "arguments": {"query": goal, "count": 10}, "purpose": "Search Twitter/X"})
         elif wants_jobs:
-            steps.append({"tool": "job_search", "arguments": {"query": goal, "num_results": 5}, "purpose": "Find job listings"})
+            steps.append({"tool": "job_search", "arguments": {"query": goal, "num_results": 5}, "purpose": "Find live job listings"})
+            if wants_extract:
+                # Read first job listing for deeper content to extract questions from
+                steps.append({"tool": "webpage_reader", "arguments": {"url": "URL_PLACEHOLDER", "max_chars": 3000}, "purpose": "Read top job listing for interview question extraction"})
         elif wants_papers:
             steps.append({"tool": "research_paper_search", "arguments": {"query": goal, "num_results": 5}, "purpose": "Search research papers"})
         elif wants_github:

@@ -158,6 +158,7 @@ async def execute_workflow(request: AgentRequest) -> AsyncGenerator[dict, None]:
         "youtube_transcript", "youtube_summary", "twitter_search", "twitter_user_tweets",
         "twitter_research_trends", "twitter_status", "research_paper_search",
         "extract_interview_questions", "extract_article", "skill_validate",
+        "webpage_reader",  # always allowed — read-only fetch
         # Agent-Reach (MIT) — read-only research
         "reach_web_read", "reach_web_search", "reach_github_search", "reach_research",
         # Social drafting (low-risk — never posts)
@@ -252,9 +253,40 @@ async def execute_workflow(request: AgentRequest) -> AsyncGenerator[dict, None]:
             yield emit(EventType.APPROVAL_GRANTED, f"Approved: {tool_name}",
                        tool_node_id, WorkflowNodeStatus.RUNNING)
 
+        # ── Substitute URL_PLACEHOLDER with first URL from prior results ─────────
+        if "URL_PLACEHOLDER" in str(args):
+            first_url = None
+            for prev in all_results:
+                prev_data = prev.get("result", {})
+                if prev_data.get("jobs"):
+                    first_url = prev_data["jobs"][0].get("url")
+                    break
+                if prev_data.get("results"):
+                    first_url = prev_data["results"][0].get("url")
+                    break
+            if first_url and first_url.startswith("http"):
+                args = {k: (first_url if v == "URL_PLACEHOLDER" else v) for k, v in args.items()}
+            else:
+                # No real URL found — skip this step gracefully
+                update_node(tool_node_id, status=WorkflowNodeStatus.SKIPPED,
+                            error="No URL available from prior results")
+                yield emit(EventType.TOOL_RESULT, f"⚠ Skipped {tool_name}: no URL from prior step",
+                           tool_node_id, WorkflowNodeStatus.SKIPPED)
+                prev_node_id = tool_node_id
+                continue
+
         # ── Substitute PLACEHOLDER with real accumulated content ───────────────
         if "PLACEHOLDER" in str(args):
-            fill = accumulated_content[:3000] if accumulated_content else json.dumps(all_results)[:3000]
+            if accumulated_content:
+                fill = accumulated_content[:3000]
+            elif all_results:
+                # Build readable text fallback from all prior results
+                fill = "\n".join(
+                    json.dumps(r["result"], default=str)[:800]
+                    for r in all_results
+                )
+            else:
+                fill = goal
             args = {k: (fill if v == "PLACEHOLDER" else v) for k, v in args.items()}
 
         # ── Execute (ReAct "Act" step, bounded by timeout) ─────────────────────
@@ -284,11 +316,24 @@ async def execute_workflow(request: AgentRequest) -> AsyncGenerator[dict, None]:
             if result.get("content"):
                 accumulated_content += "\n" + result["content"]
             if result.get("jobs"):
-                accumulated_content = json.dumps(result["jobs"])
+                # Flatten job listings to plain text for downstream steps (e.g. extract_interview_questions)
+                job_text = "\n".join(
+                    f"{j.get('title','')} at {j.get('company','')} ({j.get('location','')}).\n{j.get('snippet','')}"
+                    for j in result["jobs"]
+                )
+                accumulated_content = job_text
             if result.get("results"):
-                accumulated_content = json.dumps(result["results"])
+                # Flatten web search results to text
+                result_text = "\n".join(
+                    f"{r.get('title','')}. {r.get('snippet','')}"
+                    for r in result["results"]
+                )
+                accumulated_content = result_text or json.dumps(result["results"])
             if result.get("videos"):
                 accumulated_content = json.dumps(result["videos"])
+            if result.get("tweets"):
+                tweet_text = "\n".join(t.get("text", "") for t in result["tweets"])
+                accumulated_content = tweet_text or json.dumps(result["tweets"])
 
         all_results.append({"tool": tool_name, "result": result})
         update_node(tool_node_id, status=WorkflowNodeStatus.DONE,
