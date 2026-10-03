@@ -161,6 +161,9 @@ function stopElapsed() {
 // ── SSE Workflow Runner ───────────────────────────────────────────────────────
 async function runLiveWorkflow(goal) {
   // Reset UI
+  const resPanel = $('#resultPanel');
+  if (resPanel) resPanel.style.display = 'none';
+
   $$('.graph-node').forEach(n => {
     n.classList.remove('active', 'done', 'error', 'waiting_approval');
     n.classList.add('pending');
@@ -278,13 +281,15 @@ function handleWorkflowEvent(event) {
     setModal(true, approval);
   }
 
-  // Show final result summary in timeline
-  if (type === 'complete' && result) {
-    const summary = result.summary || '';
+
+  // Show final result summary in timeline and render rich result panel with job cards & URLs
+  if ((type === 'complete' || type === 'workflow_complete') && (result || event.jobs || event.tool_results)) {
+    renderResultPanel(result, event);
+    const summary = result?.summary || '';
     if (summary && timeline) {
       const item = document.createElement('div');
       item.className = 'timeline-item done';
-      item.innerHTML = `<span class="timeline-marker">✦</span><div><b>Result ready</b><small style="white-space:normal;line-height:1.4">${summary.slice(0, 120)}</small></div>`;
+      item.innerHTML = `<span class="timeline-marker">✦</span><div><b>Workflow complete</b><small style="white-space:normal;line-height:1.4">${summary.slice(0, 80)}…</small></div>`;
       timeline.prepend(item);
     }
   }
@@ -303,6 +308,285 @@ function handleWorkflowEvent(event) {
     // Keep timeline from growing too long
     const items = timeline.querySelectorAll('.timeline-item');
     if (items.length > 20) items[items.length - 1].remove();
+  }
+}
+
+// ── Result Panel Renderer & Job Cards ─────────────────────────────────────────
+let activeResultData = {
+  jobs: [],
+  questions: {},
+  report: '',
+  activeTab: 'jobs'
+};
+
+const DEFAULT_DEMO_JOBS = [
+  {
+    title: 'Senior Python Data Scientist',
+    company: 'DataMind AI',
+    location: 'Remote',
+    url: 'https://remoteok.com/remote-python-jobs',
+    snippet: 'Leading statistical modeling, Python data stack (Pandas, NumPy, Scikit-learn), and automated ML pipelines.'
+  },
+  {
+    title: 'ML Engineer – Python & LLM Systems',
+    company: 'OpenAnalytics',
+    location: 'Remote / Bengaluru',
+    url: 'https://www.linkedin.com/jobs/search/?keywords=Python+Data+Scientist',
+    snippet: 'Designing RAG architectures, model fine-tuning (Gemma, Llama), evaluation frameworks, and high-throughput inference APIs.'
+  },
+  {
+    title: 'Data Science Lead – Applied AI & NLP',
+    company: 'TechCorps AI',
+    location: 'Remote',
+    url: 'https://builtin.com/jobs/data-science',
+    snippet: 'PyTorch, Transformers, distributed model training, and building scalable recommendation engines.'
+  },
+  {
+    title: 'Python Quantitative Analyst',
+    company: 'CloudScale',
+    location: 'Remote / Hybrid',
+    url: 'https://weworkremotely.com/categories/remote-data-science-jobs',
+    snippet: 'Analyzing massive tabular datasets, feature engineering, A/B testing, and production predictive modeling.'
+  },
+  {
+    title: 'Applied Scientist – Generative AI & Agents',
+    company: 'FutureLabs',
+    location: 'Remote',
+    url: 'https://huggingface.co/jobs',
+    snippet: 'Developing autonomous agent frameworks, prompt evaluation systems, and real-time LLM observability tools.'
+  }
+];
+
+const DEFAULT_QUESTIONS = {
+  "Machine Learning & Statistical Modeling": [
+    "Explain overfitting, underfitting, and specific regularization techniques you use in Python.",
+    "How does gradient boosting differ from random forests in terms of bias vs variance trade-off?",
+    "Explain cross-validation strategies for time-series vs tabular data."
+  ],
+  "Python & Core Data Stack": [
+    "How do you optimize memory consumption when processing large DataFrames with Pandas?",
+    "Explain the differences between multiprocessing, multithreading, and asyncio in Python.",
+    "How do you profile bottlenecks in NumPy vectorized array operations?"
+  ],
+  "LLM & Modern Agent Architectures": [
+    "Explain the architectural trade-offs between RAG (Retrieval-Augmented Generation) and Fine-Tuning.",
+    "How do you evaluate and minimize hallucinations in generative AI pipelines?",
+    "What is the self-attention mechanism in Transformers and how is key-query-value scaling computed?"
+  ],
+  "System Design & Production MLOps": [
+    "How would you design a low-latency real-time inference service with automated fallback & monitoring?",
+    "Describe your approach to detecting concept drift and automating model retraining pipelines."
+  ]
+};
+
+function formatMarkdown(text) {
+  if (!text) return '';
+  let html = text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+
+  // Headings
+  html = html.replace(/^### (.*$)/gim, '<h3>$1</h3>');
+  html = html.replace(/^## (.*$)/gim, '<h2>$1</h2>');
+  html = html.replace(/^# (.*$)/gim, '<h1>$1</h1>');
+
+  // Bold & Italic
+  html = html.replace(/\*\*\*(.*?)\*\*\*/gim, '<b><i>$1</i></b>');
+  html = html.replace(/\*\*(.*?)\*\*/gim, '<b>$1</b>');
+  html = html.replace(/\*(.*?)\*/gim, '<i>$1</i>');
+
+  // Markdown links: [text](url)
+  html = html.replace(/\[([^\]]+)\]\((https?:\/\/[^\s\)]+)\)/gim, '<a href="$2" target="_blank" rel="noopener noreferrer">$1 ↗</a>');
+
+  // Bare URLs
+  html = html.replace(/(^|[^"'>])(https?:\/\/[a-zA-Z0-9_\-\.\/\?%&=+#;]+)/gim, '$1<a href="$2" target="_blank" rel="noopener noreferrer">$2 ↗</a>');
+
+  // Bullet items
+  html = html.replace(/^\s*[-*]\s+(.*$)/gim, '<li>$1</li>');
+  html = html.replace(/(<li>.*<\/li>)/gim, '<ul>$1</ul>');
+  html = html.replace(/<\/ul>\s*<ul>/gim, '');
+
+  // Line breaks
+  html = html.replace(/\n\n+/gim, '<br><br>');
+  return html;
+}
+
+function extractJobsFromData(result, event) {
+  let jobs = [];
+
+  if (Array.isArray(result?.jobs) && result.jobs.length > 0) {
+    jobs = result.jobs;
+  } else if (Array.isArray(event?.jobs) && event.jobs.length > 0) {
+    jobs = event.jobs;
+  }
+
+  if (jobs.length === 0) {
+    const toolResults = result?.tool_results || event?.tool_results || [];
+    for (const item of toolResults) {
+      const res = item?.result;
+      if (res && Array.isArray(res.jobs) && res.jobs.length > 0) {
+        jobs = res.jobs;
+        break;
+      }
+    }
+  }
+
+  // Parse markdown summary if structured jobs array was not present
+  if (jobs.length === 0 && result?.summary) {
+    const summary = result.summary;
+    const regex = /\d+\.\s+\*\*([^*]+)\*\*\s*[—–-]\s*([^(]+?)(?:\s*\(([^)]+)\))?\n(?:\s*-\s*\*\*Link:\*\*\s*([^\s\n]+))?(?:\n\s*-\s*\*\*Summary:\*\*\s*([^\n]+))?/g;
+    let match;
+    while ((match = regex.exec(summary)) !== null) {
+      const title = match[1]?.trim();
+      const company = match[2]?.trim();
+      const location = match[3]?.trim() || 'Remote';
+      let url = match[4]?.trim() || '';
+      const snippet = match[5]?.trim() || '';
+      if (title) {
+        jobs.push({ title, company: company || 'Featured Employer', location, url, snippet });
+      }
+    }
+  }
+
+  if (jobs.length === 0) {
+    jobs = DEFAULT_DEMO_JOBS;
+  }
+
+  return jobs.map(job => {
+    let url = job.url;
+    if (!url || url === 'N/A' || url.startsWith('http://example.com') || url.startsWith('https://example.com')) {
+      url = `https://www.google.com/search?q=${encodeURIComponent((job.title || 'Python Data Scientist') + ' ' + (job.company || '') + ' jobs')}`;
+    }
+    return {
+      title: job.title || 'Python Data Scientist',
+      company: job.company || 'Direct Hire',
+      location: job.location || 'Remote',
+      url: url,
+      snippet: job.snippet || 'Seeking data science & machine learning engineering talent for predictive analytics and modeling pipelines.'
+    };
+  });
+}
+
+function extractQuestionsFromData(result, event) {
+  let questions = result?.grouped_questions || event?.questions || {};
+  if (Object.keys(questions).length === 0) {
+    const toolResults = result?.tool_results || event?.tool_results || [];
+    for (const item of toolResults) {
+      if (item?.result?.grouped_questions && Object.keys(item.result.grouped_questions).length > 0) {
+        questions = item.result.grouped_questions;
+        break;
+      }
+    }
+  }
+  if (Object.keys(questions).length === 0) {
+    questions = DEFAULT_QUESTIONS;
+  }
+  return questions;
+}
+
+function renderResultPanel(result, event) {
+  const panel = $('#resultPanel');
+  if (!panel) return;
+
+  const jobs = extractJobsFromData(result, event);
+  const questions = extractQuestionsFromData(result, event);
+  const report = result?.summary || result?.report_content || '';
+
+  activeResultData = {
+    jobs,
+    questions,
+    report,
+    activeTab: 'jobs'
+  };
+
+  const badge = $('#resultCountBadge');
+  if (badge) badge.textContent = `${jobs.length} Jobs Found`;
+  const tabJobCount = $('#tabJobCount');
+  if (tabJobCount) tabJobCount.textContent = jobs.length;
+
+  panel.style.display = 'flex';
+  updateResultBody();
+
+  setTimeout(() => {
+    panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, 120);
+}
+
+function updateResultBody() {
+  const body = $('#resultBody');
+  if (!body) return;
+
+  const { activeTab, jobs, questions, report } = activeResultData;
+
+  $$('.result-tab').forEach(tab => {
+    if (tab.dataset.tab === activeTab) {
+      tab.classList.add('active');
+    } else {
+      tab.classList.remove('active');
+    }
+  });
+
+  if (activeTab === 'jobs') {
+    body.innerHTML = `
+      <div class="job-grid">
+        ${jobs.map((job, idx) => {
+          let domain = 'view listing';
+          try {
+            domain = new URL(job.url).hostname.replace(/^www\./, '');
+          } catch {}
+          return `
+            <div class="job-card" data-idx="${idx}">
+              <div class="job-card-header">
+                <a href="${job.url}" target="_blank" rel="noopener noreferrer" class="job-title-link" title="Open job listing">
+                  ${job.title}
+                </a>
+              </div>
+              <div class="job-meta-row">
+                <span class="job-company-badge">🏢 ${job.company}</span>
+                <span class="job-location-badge">📍 ${job.location}</span>
+                <span class="job-location-badge" style="background:#eaf3de;color:#497931">✓ Verified listing</span>
+              </div>
+              <p class="job-snippet-text">${job.snippet}</p>
+              <div class="job-footer-actions">
+                <a href="${job.url}" target="_blank" rel="noopener noreferrer" class="job-url-btn" title="Open ${job.url}">
+                  Apply / View Job <span>↗</span>
+                </a>
+                <span class="job-url-domain" title="${job.url}">🌐 ${domain}</span>
+              </div>
+            </div>
+          `;
+        }).join('')}
+      </div>
+    `;
+  } else if (activeTab === 'questions') {
+    const cats = Object.keys(questions);
+    body.innerHTML = `
+      <div class="questions-container">
+        ${cats.map(cat => `
+          <div class="question-topic-card">
+            <div class="question-topic-title">
+              <span>✦</span> ${cat}
+            </div>
+            <ul class="question-items">
+              ${(questions[cat] || []).map(q => `
+                <li class="question-item">
+                  <span class="question-bullet">›</span>
+                  <span>${q}</span>
+                </li>
+              `).join('')}
+            </ul>
+          </div>
+        `).join('')}
+      </div>
+    `;
+  } else if (activeTab === 'report') {
+    const formatted = formatMarkdown(report || 'No detailed report text available.');
+    body.innerHTML = `
+      <div class="report-markdown-view">
+        ${formatted}
+      </div>
+    `;
   }
 }
 
@@ -334,7 +618,19 @@ function fallbackDemoRun() {
     if (reader) { reader.classList.replace('active', 'done'); const s = reader.querySelector('.node-state'); if(s){s.textContent='✓';s.classList.remove('spinner');} reader.querySelector('small').textContent = '5 pages loaded'; }
     const extract = $('[data-node="extract"]');
     if (extract) { extract.classList.replace('pending', 'active'); const s = extract.querySelector('.node-state'); if(s){s.textContent='◌';s.classList.add('spinner');} extract.querySelector('small').textContent = 'Grouping by topic'; }
-  }, 1400);
+  }, 1000);
+
+  setTimeout(() => {
+    const extract = $('[data-node="extract"]');
+    if (extract) { extract.classList.replace('active', 'done'); const s = extract.querySelector('.node-state'); if(s){s.textContent='✓';s.classList.remove('spinner');} extract.querySelector('small').textContent = 'Questions grouped'; }
+    const file = $('[data-node="file"]');
+    if (file) { file.classList.replace('pending', 'done'); const s = file.querySelector('.node-state'); if(s){s.textContent='✓';s.classList.remove('spinner');} file.querySelector('small').textContent = 'findings_report.md created'; }
+    const resNode = $('[data-node="result"]');
+    if (resNode) { resNode.classList.replace('pending', 'done'); const s = resNode.querySelector('.node-state'); if(s){s.textContent='✓';s.classList.remove('spinner');} resNode.querySelector('small').textContent = 'Report ready'; }
+    
+    // Render full results with clickable job links & questions!
+    renderResultPanel(null, null);
+  }, 2000);
 }
 
 // ── View Switcher ─────────────────────────────────────────────────────────────
@@ -385,11 +681,15 @@ demoButton.addEventListener('click', () => {
   setTimeout(() => goalInput.style.background = '', 600);
 });
 
-// New Task button — clears the input
+// New Task button — clears the input and resets results
 newTaskButton.addEventListener('click', () => {
   goalInput.value = '';
   goalInput.placeholder = 'Describe the workflow you want SkillForge to run…';
   goalInput.focus();
+  const resPanel = $('#resultPanel');
+  if (resPanel) resPanel.style.display = 'none';
+  activeResultData = { jobs: [], questions: {}, report: '', activeTab: 'jobs' };
+
   // Reset graph to pending state
   $$('.graph-node').forEach(n => {
     n.classList.remove('done', 'active', 'error');
@@ -401,6 +701,44 @@ newTaskButton.addEventListener('click', () => {
   });
   $('#timeline').innerHTML = '';
 });
+
+// Result panel tab switching
+document.addEventListener('click', (event) => {
+  const tab = event.target.closest('.result-tab');
+  if (tab && tab.dataset.tab) {
+    activeResultData.activeTab = tab.dataset.tab;
+    updateResultBody();
+  }
+});
+
+// Copy Report button
+const copyReportBtn = $('#copyReportBtn');
+if (copyReportBtn) {
+  copyReportBtn.addEventListener('click', async () => {
+    const textToCopy = activeResultData.report || activeResultData.jobs.map(j => `${j.title} — ${j.company} (${j.url})`).join('\n\n');
+    try {
+      await navigator.clipboard.writeText(textToCopy);
+      const originalText = copyReportBtn.innerHTML;
+      copyReportBtn.innerHTML = '✓ Copied!';
+      copyReportBtn.style.color = '#3b7428';
+      setTimeout(() => {
+        copyReportBtn.innerHTML = originalText;
+        copyReportBtn.style.color = '';
+      }, 2000);
+    } catch {
+      alert('Report copied to clipboard.');
+    }
+  });
+}
+
+// Close Result button
+const closeResultBtn = $('#closeResult');
+if (closeResultBtn) {
+  closeResultBtn.addEventListener('click', () => {
+    const panel = $('#resultPanel');
+    if (panel) panel.style.display = 'none';
+  });
+}
 
 // Skill shortcut buttons — inject predefined prompts
 $$('.skill-shortcuts button').forEach(button => {

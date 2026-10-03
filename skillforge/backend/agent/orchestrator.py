@@ -363,6 +363,36 @@ async def execute_workflow(request: AgentRequest) -> AsyncGenerator[dict, None]:
     except asyncio.TimeoutError:
         synthesis = provider._offline_synthesis(request.goal, all_results)
 
+    # Collect structured entities from all_results to ensure frontend gets first-class jobs, questions, urls
+    collected_jobs = []
+    collected_questions = {}
+    collected_urls = []
+    for item in all_results:
+        res = item.get("result", {})
+        if isinstance(res, dict):
+            if res.get("jobs"):
+                for j in res["jobs"]:
+                    if isinstance(j, dict):
+                        collected_jobs.append(j)
+                        if j.get("url"):
+                            collected_urls.append({"title": j.get("title", "Job Listing"), "url": j["url"], "type": "job"})
+            if res.get("results"):
+                for w in res["results"]:
+                    if isinstance(w, dict) and w.get("url"):
+                        collected_urls.append({"title": w.get("title", "Web Page"), "url": w["url"], "type": "web"})
+            if res.get("grouped_questions"):
+                collected_questions.update(res["grouped_questions"])
+            if res.get("url") and res["url"] not in [u.get("url") for u in collected_urls]:
+                collected_urls.append({"title": res.get("title", "Extracted Page"), "url": res["url"], "type": "page"})
+
+    if collected_jobs and "jobs" not in synthesis:
+        synthesis["jobs"] = collected_jobs
+    if collected_questions and "grouped_questions" not in synthesis:
+        synthesis["grouped_questions"] = collected_questions
+    if collected_urls and "urls" not in synthesis:
+        synthesis["urls"] = collected_urls
+    synthesis["tool_results"] = all_results
+
     # Auto-save if the synthesis produced file content
     if synthesis.get("report_content") and synthesis.get("filename"):
         try:
@@ -388,6 +418,10 @@ async def execute_workflow(request: AgentRequest) -> AsyncGenerator[dict, None]:
         "type":         "complete",
         "run_id":       run_id,
         "result":       synthesis,
+        "jobs":         collected_jobs,
+        "questions":    collected_questions,
+        "urls":         collected_urls,
+        "tool_results": all_results,
         "graph":        {"nodes": [n.dict() for n in graph.nodes], "edges": graph.edges},
         "ledger_count": len(ledger.history(run_id=run_id))
     }

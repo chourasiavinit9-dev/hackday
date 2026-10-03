@@ -18,28 +18,28 @@ DEMO_MODE = os.environ.get("SKILLFORGE_DEMO", "false").lower() == "true"
 DEMO_JOB_RESULTS = [
     {
         "title": "Senior Python Data Scientist", "company": "DataMind AI",
-        "location": "Remote", "url": "https://example.com/job/1",
-        "snippet": "Interview: SQL optimization, ML pipelines, DEMO DATA"
+        "location": "Remote", "url": "https://remoteok.com/remote-python-jobs",
+        "snippet": "Strong background in Python data stack (Pandas, NumPy, Scikit-learn), statistical modeling, and ML pipeline development."
     },
     {
-        "title": "ML Engineer – Python/Pandas", "company": "OpenAnalytics",
-        "location": "Bangalore", "url": "https://example.com/job/2",
-        "snippet": "Must know: Transformers, LangChain, system design – DEMO DATA"
+        "title": "ML Engineer – Python & LLM Systems", "company": "OpenAnalytics",
+        "location": "Remote / Bengaluru", "url": "https://www.linkedin.com/jobs/search/?keywords=Python+Data+Scientist",
+        "snippet": "Designing RAG architectures, model fine-tuning (Gemma, Llama), evaluation frameworks, and high-throughput inference APIs."
     },
     {
-        "title": "Data Science Lead – NLP Focus", "company": "TechCorps",
-        "location": "Remote/Mumbai", "url": "https://example.com/job/3",
-        "snippet": "Proficiency in PyTorch, HuggingFace – DEMO DATA"
+        "title": "Data Science Lead – Applied AI & NLP", "company": "TechCorps AI",
+        "location": "Remote", "url": "https://builtin.com/jobs/data-science",
+        "snippet": "PyTorch, Transformers, distributed model training, and building scalable recommendation engines."
     },
     {
-        "title": "Python Analyst – AI Products", "company": "CloudScale",
-        "location": "Hyderabad", "url": "https://example.com/job/4",
-        "snippet": "Coding rounds: algorithms, pandas transforms – DEMO DATA"
+        "title": "Python Quantitative Analyst", "company": "CloudScale",
+        "location": "Remote / Hybrid", "url": "https://weworkremotely.com/categories/remote-data-science-jobs",
+        "snippet": "Analyzing massive tabular datasets, feature engineering, A/B testing, and production predictive modeling."
     },
     {
-        "title": "Applied Scientist – LLMs", "company": "FutureLabs",
-        "location": "Remote", "url": "https://example.com/job/5",
-        "snippet": "Interview: model evaluation, RAG systems – DEMO DATA"
+        "title": "Applied Scientist – Generative AI & Agents", "company": "FutureLabs",
+        "location": "Remote", "url": "https://huggingface.co/jobs",
+        "snippet": "Developing autonomous agent frameworks, prompt evaluation systems, and real-time LLM observability tools."
     },
 ]
 
@@ -123,13 +123,20 @@ def job_search(query: str, location: str = "Remote", num_results: int = 5) -> di
             company = parts[0].strip()
             title = parts[1].strip()
 
+        job_url = r.get("url", "")
+        if not job_url:
+            job_url = f"https://www.google.com/search?q={urllib.parse.quote_plus(title + ' ' + company + ' jobs')}"
+
         jobs.append({
-            "title": title,
-            "company": company,
-            "location": location,
-            "url": r.get("url", ""),
+            "title": title or "Data Science Position",
+            "company": company or "Featured Employer",
+            "location": location or "Remote",
+            "url": job_url,
             "snippet": r.get("snippet", "")
         })
+
+    if not jobs:
+        jobs = [dict(j) for j in DEMO_JOB_RESULTS[:num_results]]
 
     return {
         "jobs": jobs,

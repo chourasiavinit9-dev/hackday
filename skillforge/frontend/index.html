@@ -49,6 +49,30 @@
 
           <section class="panel safety-panel"><div class="safety-art"><div class="orbit orbit-one"></div><div class="orbit orbit-two"></div><div class="safety-star">✦</div></div><div><span class="section-kicker">POLICY ENGINE</span><h2>Safe by default</h2><p>SkillForge pauses before consequential actions. You stay in control of every external side effect.</p><button class="text-button" id="approvalButton">Preview approval flow <span>→</span></button></div><div class="policy-stats"><span><b>0</b><small>blocked</small></span><span><b>3</b><small>policies</small></span></div></section>
         </div>
+
+        <!-- ── Result Panel (shown after workflow completes) ─────────────────── -->
+        <section class="panel result-panel" id="resultPanel" style="display:none;margin-top:24px">
+          <div class="panel-heading">
+            <div>
+              <span class="section-kicker">WORKFLOW COMPLETE <span class="live-dot" style="background:#78b25a"></span></span>
+              <h2 id="resultTitle">Findings & Job Opportunities</h2>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px">
+              <span class="result-badge" id="resultCountBadge">0 Jobs Found</span>
+              <button class="ghost-button" id="copyReportBtn" style="font-size:11px;padding:6px 12px" title="Copy report markdown to clipboard">📋 Copy Report</button>
+              <button class="ghost-button" id="closeResult" style="font-size:11px;padding:6px 12px">✕ Dismiss</button>
+            </div>
+          </div>
+
+          <div class="result-nav-tabs">
+            <button class="result-tab active" data-tab="jobs">💼 Job Opportunities (<span id="tabJobCount">0</span>)</button>
+            <button class="result-tab" data-tab="questions">❓ Interview Focus Areas</button>
+            <button class="result-tab" data-tab="report">📄 Full Preparation Report</button>
+          </div>
+
+          <div id="resultBody"></div>
+        </section>
+
         <footer class="page-footer"><span>SkillForge <b>v0.1.0</b> · Gemma-powered agent runtime</span><span><span class="green-dot"></span> All systems nominal</span></footer>
       </main>
     </div>
