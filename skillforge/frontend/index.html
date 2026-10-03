@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#f7f4ee" />
+    <title>SkillForge — Agent workspace</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar">
+        <div class="brand-lockup"><div class="brand-mark">✦</div><div><strong>skillforge</strong><span>agent workspace</span></div></div>
+        <div class="workspace-pill"><span class="avatar avatar-lime">V</span><span><b>Vinit's workspace</b><small>Personal workspace</small></span><span class="chevron">⌄</span></div>
+        <nav class="main-nav" aria-label="Primary navigation">
+          <button class="nav-item active" data-view="agent"><span class="nav-icon">⌁</span>Agent<span class="nav-kbd">⌘ 1</span></button>
+          <button class="nav-item" data-view="skills"><span class="nav-icon">◇</span>Skills<span class="nav-count">6</span></button>
+          <button class="nav-item" data-view="ledger"><span class="nav-icon">◴</span>Action ledger</button>
+          <button class="nav-item" data-view="settings"><span class="nav-icon">⚙</span>Settings</button>
+        </nav>
+        <div class="side-label">Your skills</div>
+        <div class="skill-shortcuts">
+          <button><span class="skill-dot pink">⌁</span>Web search</button>
+          <button><span class="skill-dot blue">◌</span>Webpage reader</button>
+          <button><span class="skill-dot yellow">▱</span>Job search</button>
+          <button><span class="skill-dot green">⌗</span>File creator</button>
+          <button><span class="skill-dot" style="background:#fce0e0;color:#d83c3c;">▶️</span>YouTube scraper</button>
+          <button><span class="skill-dot" style="background:#dff1ff;color:#1da1f2;">🐦</span>Twitter post</button>
+        </div>
+        <div class="sidebar-bottom"><div class="open-source"><span class="green-dot"></span>Open-source runtime <span class="live-pill">LIVE</span></div><button class="help-button">? <span>Help & docs</span><span>↗</span></button></div>
+      </aside>
+
+      <main class="main-content">
+        <header class="topbar"><div class="breadcrumbs"><span>Workspace</span><span>/</span><b>Agent</b></div><div class="top-actions"><div class="model-chip"><span class="model-orb">G</span><span><b>Gemma 4 E4B</b><small>Local provider</small></span><span class="chevron">⌄</span></div><button class="icon-button" aria-label="Notifications">♧<i></i></button><span class="avatar avatar-pink">VC</span></div></header>
+
+        <section class="page-heading"><div><div class="eyebrow"><span class="green-dot"></span> READY TO AUTOMATE</div><h1>Good morning, Vinit <span>✦</span></h1><p>Give SkillForge a goal. It will plan the work, run each step, and show you exactly what happened.</p></div><div class="heading-actions"><button class="ghost-button" id="demoButton">↻ <span>Load demo</span></button><button class="primary-button" id="newTaskButton">＋ New task</button></div></section>
+
+        <section class="command-card" id="commandCard"><div class="card-topline"><span class="command-label"><span class="sparkle">✦</span> What do you want to automate?</span><span class="shortcut">⌘ ↵ to run</span></div><textarea id="goalInput" aria-label="Automation goal">Find five Python data science jobs, extract the interview questions mentioned in the listings, group them by topic, and create a preparation report.</textarea><div class="command-footer"><div class="attached-skills"><span class="muted-label">Skills selected</span><span class="tag pink-tag">⌁ job-search</span><span class="tag blue-tag">◌ webpage-reader</span><span class="tag green-tag">⌗ file-creator</span><span class="tag" style="background:#fce0e0;color:#d83c3c;">▶️ youtube-scraper</span><span class="tag" style="background:#dff1ff;color:#1da1f2;">🐦 twitter-post</span><button class="add-skill" aria-label="Add skill">＋</button></div><button class="run-button" id="runButton"><span class="run-icon">▶</span> Run workflow</button></div></section>
+
+        <div class="content-grid">
+          <section class="panel graph-panel"><div class="panel-heading"><div><span class="section-kicker">LIVE RUN <span class="live-dot"></span></span><h2>Execution graph</h2></div><span class="run-id">RUN-041 <span>↗</span></span></div><div class="graph-canvas" id="graphCanvas"><div class="graph-line line-1"></div><div class="graph-line line-2"></div><div class="graph-line line-3"></div><div class="graph-line line-4"></div><div class="graph-line line-5"></div><div class="graph-line line-6"></div><div class="graph-line line-7"></div><div class="graph-line line-8"></div><div class="graph-node done" data-node="goal"><div class="node-icon">✦</div><div><b>Goal understood</b><small>Input parsed</small></div><span class="node-state">✓</span></div><div class="graph-node done" data-node="gemma"><div class="node-icon orb-node">G</div><div><b>Gemma 4</b><small>Plan generated</small></div><span class="node-state">✓</span></div><div class="graph-node done" data-node="search"><div class="node-icon pink-node">⌁</div><div><b>job-search</b><small>Skill discovered</small></div><span class="node-state">✓</span></div><div class="graph-node active" data-node="reader"><div class="node-icon blue-node">◌</div><div><b>webpage-reader</b><small>Opening 5 listings</small></div><span class="node-state spinner">◌</span></div><div class="graph-node pending" data-node="extract"><div class="node-icon yellow-node">✳</div><div><b>question-extractor</b><small>Waiting</small></div><span class="node-state">○</span></div><div class="graph-node pending" data-node="file"><div class="node-icon green-node">⌗</div><div><b>file-creator</b><small>Waiting</small></div><span class="node-state">○</span></div><div class="graph-node pending" data-node="youtube"><div class="node-icon" style="background:#fce0e0;color:#d83c3c;">▶️</div><div><b>youtube-scraper</b><small>Waiting</small></div><span class="node-state">○</span></div><div class="graph-node pending" data-node="twitter"><div class="node-icon" style="background:#dff1ff;color:#1da1f2;">🐦</div><div><b>twitter-post</b><small>Waiting</small></div><span class="node-state">○</span></div><div class="graph-node pending result-node" data-node="result"><div class="node-icon result-icon">↗</div><div><b>Preparation report</b><small>Waiting</small></div><span class="node-state">○</span></div></div><div class="graph-legend"><span><i class="legend-dot done-dot"></i>Completed</span><span><i class="legend-dot active-dot"></i>In progress</span><span><i class="legend-dot pending-dot"></i>Queued</span></div></section>
+
+          <section class="panel activity-panel"><div class="panel-heading"><div><span class="section-kicker">TIMELINE</span><h2>Live activity</h2></div><button class="more-button">•••</button></div><div class="timeline" id="timeline"><div class="timeline-item done"><span class="timeline-marker">✓</span><div><b>Goal understood</b><small>Just now · 0.2s</small></div></div><div class="timeline-item done"><span class="timeline-marker">✓</span><div><b>Skill discovered</b><small>job-search · 0.4s</small></div></div><div class="timeline-item done"><span class="timeline-marker">✓</span><div><b>Searching jobs</b><small>SerpAPI · 1.8s</small></div></div><div class="timeline-item active"><span class="timeline-marker">◌</span><div><b>Opening listings</b><small>3 of 5 pages loaded</small></div></div><div class="timeline-item pending"><span class="timeline-marker">○</span><div><b>Extracting questions</b><small>Queued</small></div></div><div class="timeline-item pending"><span class="timeline-marker">○</span><div><b>Creating report</b><small>Queued</small></div></div><div class="timeline-item pending"><span class="timeline-marker">○</span><div><b>Fetching transcript</b><small>Queued</small></div></div><div class="timeline-item pending"><span class="timeline-marker">○</span><div><b>Posting to Twitter</b><small>Queued</small></div></div></div><div class="activity-footer"><span class="tiny-pulse"></span> Agent is working <span class="elapsed">00:06</span></div></section>
+
+          <section class="panel ledger-panel"><div class="panel-heading"><div><span class="section-kicker">TRUST LAYER</span><h2>Action ledger</h2></div><span class="verified-badge">✓ VERIFIED</span></div><div class="ledger-summary"><div><strong>44</strong><span>actions recorded</span></div><div class="integrity-seal"><span>✓</span><div><b>Ledger integrity</b><small>Hash chain is valid</small></div></div><div class="hash"><span>LAST HASH</span><b>8f4c...a91d</b></div></div><div class="ledger-table"><div class="ledger-row ledger-head"><span>ACTION</span><span>ACTOR</span><span>TIME</span><span>STATUS</span></div><div class="ledger-row"><span><b>#41</b> Search query issued</span><span>job-search</span><span>10:04:22</span><span class="status-ok">✓</span></div><div class="ledger-row"><span><b>#42</b> Opened listing page</span><span>web-reader</span><span>10:04:23</span><span class="status-ok">✓</span></div><div class="ledger-row"><span><b>#43</b> Extracted page text</span><span>web-reader</span><span>10:04:24</span><span class="status-ok">✓</span></div></div><button class="view-ledger" data-view="ledger">View full ledger <span>↗</span></button></section>
+
+          <section class="panel safety-panel"><div class="safety-art"><div class="orbit orbit-one"></div><div class="orbit orbit-two"></div><div class="safety-star">✦</div></div><div><span class="section-kicker">POLICY ENGINE</span><h2>Safe by default</h2><p>SkillForge pauses before consequential actions. You stay in control of every external side effect.</p><button class="text-button" id="approvalButton">Preview approval flow <span>→</span></button></div><div class="policy-stats"><span><b>0</b><small>blocked</small></span><span><b>3</b><small>policies</small></span></div></section>
+        </div>
+        <footer class="page-footer"><span>SkillForge <b>v0.1.0</b> · Gemma-powered agent runtime</span><span><span class="green-dot"></span> All systems nominal</span></footer>
+      </main>
+    </div>
+
+    <div class="modal-backdrop" id="approvalModal" aria-hidden="true"><div class="approval-modal"><button class="modal-close" id="modalClose">×</button><div class="risk-icon">!</div><span class="section-kicker risk-kicker">HIGH-RISK ACTION</span><h2>Approval required</h2><p>SkillForge wants to publish your preparation report to an external destination.</p><div class="approval-detail"><div><span>Action</span><b>Publish preparation report</b></div><div><span>Destination</span><b>Social network · X</b></div><div><span>Risk level</span><b class="risk-text">High</b></div></div><div class="modal-actions"><button class="ghost-button" id="cancelApproval">Cancel</button><button class="approve-button" id="approveButton">Approve & post <span>↗</span></button></div><small class="modal-note">This action will be written to the tamper-evident ledger.</small></div></div>
+    <script src="./app.js"></script>
+  </body>
+</html>

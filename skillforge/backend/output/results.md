@@ -1,0 +1,1 @@
+[{"title": "Python Data Science Roadmap 2026", "url": "https://roadmap.sh/data-science", "snippet": "[DEMO DATA]"}, {"title": "Top 10 Data Science Skills", "url": "https://example.com/skills", "snippet": "[DEMO DATA]"}, {"title": "NumPy vs Pandas: A Comparison", "url": "https://example.com/numpy-pandas", "snippet": "[DEMO DATA]"}]

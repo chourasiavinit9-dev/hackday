@@ -1,0 +1,267 @@
+"""
+SkillForge — FastAPI Backend (main.py)
+This is the canonical entry point for the SkillForge API server.
+It exposes all agent capabilities via REST + Server-Sent Events (SSE).
+
+Canonical server start:
+  python main.py                  # production
+  uvicorn main:app --reload       # development with auto-reload
+
+Root causes fixed (2026-10-03):
+  • Planning hang eliminated — plan_workflow now uses intent-only routing (zero model latency).
+  • web_search properly registered in TOOL_REGISTRY and dispatched by run_tool.
+  • Follow-up tool calls are no longer discarded — ReAct observe round accumulates all results.
+  • Function-call history preserved across rounds — tool responses never orphaned.
+  • Hard timeouts on every model and tool call (30s tool / 45s plan / 60s synthesis).
+  • Invalid API key gives actionable error at startup instead of a silent hang.
+"""
+import os
+import json
+import asyncio
+from pathlib import Path
+from typing import Optional
+from datetime import datetime
+
+from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse, FileResponse
+from pydantic import BaseModel
+
+import sys
+sys.path.insert(0, str(Path(__file__).parent))
+
+from models.types import (
+    AgentRequest, ApprovalResponse, AutomationPolicy,
+    WorkflowNodeType, WorkflowNodeStatus
+)
+from skills.registry import list_skills, get_skill, install_skill
+from tools.runtime import run_tool, TOOL_REGISTRY
+from policy.engine import get_policy, update_policy
+from ledger.ledger import get_ledger
+from agent.orchestrator import execute_workflow, resolve_approval, get_run, list_runs
+from agent.gemma_provider import get_provider
+
+app = FastAPI(
+    title="SkillForge API",
+    version="2.0.0",
+    description="Open-source Gemma 4 agent runtime with ReAct loop"
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+DEMO_MODE = os.environ.get("SKILLFORGE_DEMO", "false").lower() == "true"
+
+
+# ── Health ─────────────────────────────────────────────────────────────────────
+
+@app.get("/health")
+def health():
+    provider = get_provider()
+    return {
+        "status":     "ok",
+        "demo_mode":  DEMO_MODE,
+        "model":      provider.model_name,
+        "model_live": provider.model is not None,
+        "timestamp":  datetime.utcnow().isoformat()
+    }
+
+
+# ── Agent Execution (SSE streaming) ────────────────────────────────────────────
+
+@app.post("/api/run")
+async def run_agent(request: AgentRequest):
+    """Start a ReAct workflow and stream events via SSE."""
+    if DEMO_MODE:
+        request.demo_mode = True
+
+    async def event_stream():
+        try:
+            async for event in execute_workflow(request):
+                yield f"data: {json.dumps(event, default=str)}\n\n"
+                await asyncio.sleep(0)
+        except Exception as exc:
+            yield f"data: {json.dumps({'type': 'error', 'message': str(exc)})}\n\n"
+
+    return StreamingResponse(
+        event_stream(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"}
+    )
+
+
+@app.get("/api/run/{run_id}")
+def get_run_status(run_id: str):
+    run = get_run(run_id)
+    if not run:
+        raise HTTPException(404, "Run not found")
+    return run.dict()
+
+
+@app.get("/api/runs")
+def list_all_runs():
+    return [r.dict() for r in list_runs()]
+
+
+# ── Approval ───────────────────────────────────────────────────────────────────
+
+@app.post("/api/approve")
+def approve_action(response: ApprovalResponse):
+    resolve_approval(response.approval_id, response.approved)
+    return {"ok": True, "approved": response.approved}
+
+
+# ── Skills ─────────────────────────────────────────────────────────────────────
+
+@app.get("/api/skills")
+def get_skills():
+    return list_skills()
+
+
+@app.get("/api/skills/{skill_id}")
+def get_skill_detail(skill_id: str):
+    skill = get_skill(skill_id)
+    if not skill:
+        raise HTTPException(404, f"Skill '{skill_id}' not found")
+    return skill
+
+
+class SkillBuildRequest(BaseModel):
+    description: str
+
+
+@app.post("/api/skills/build")
+async def build_skill(request: SkillBuildRequest):
+    """Generate a new SKILL.md from a natural-language description."""
+    return get_provider().generate_skill_md(request.description)
+
+
+class SkillInstallRequest(BaseModel):
+    name: str
+    skill_md: str
+    description: str = ""
+    capabilities: list[str] = []
+    tools: list[str] = []
+
+
+@app.post("/api/skills/install")
+async def install_skill_endpoint(request: SkillInstallRequest):
+    from tools.runtime import skill_validate, skill_install
+    validation = skill_validate(request.skill_md)
+    if not validation["valid"]:
+        raise HTTPException(400, detail={"errors": validation["errors"]})
+    result = skill_install(request.name, request.skill_md)
+    skill_data = {
+        "name":         request.name,
+        "description":  request.description or validation.get("description", ""),
+        "version":      "1.0.0",
+        "capabilities": request.capabilities,
+        "tools":        request.tools,
+        "source":       "user"
+    }
+    install_skill(request.name, skill_data)
+    return {"installed": True, "name": request.name, "path": result["path"]}
+
+
+class SkillValidateRequest(BaseModel):
+    skill_md: str
+
+
+@app.post("/api/skills/validate")
+def validate_skill(request: SkillValidateRequest):
+    from tools.runtime import skill_validate
+    return skill_validate(request.skill_md)
+
+
+# ── Tools ──────────────────────────────────────────────────────────────────────
+
+@app.get("/api/tools")
+def get_tools():
+    return [
+        {"name": name, "description": info["description"], "risk": info["risk"]}
+        for name, info in TOOL_REGISTRY.items()
+    ]
+
+
+class ToolRunRequest(BaseModel):
+    tool_name: str
+    arguments: dict
+
+
+@app.post("/api/tools/run")
+def run_tool_endpoint(request: ToolRunRequest):
+    """Direct tool execution (for testing/debugging)."""
+    if request.tool_name not in TOOL_REGISTRY:
+        raise HTTPException(400, f"Unknown tool: {request.tool_name}")
+    return run_tool(request.tool_name, request.arguments)
+
+
+# ── Policy ─────────────────────────────────────────────────────────────────────
+
+@app.get("/api/policy")
+def get_policy_endpoint():
+    return get_policy().dict()
+
+
+@app.put("/api/policy")
+def update_policy_endpoint(policy: AutomationPolicy):
+    update_policy(policy)
+    return policy.dict()
+
+
+# ── Ledger ─────────────────────────────────────────────────────────────────────
+
+@app.get("/api/ledger")
+def get_ledger_history(run_id: Optional[str] = None, limit: int = 50):
+    return get_ledger().history(run_id=run_id, limit=limit)
+
+
+@app.get("/api/ledger/verify")
+def verify_ledger():
+    return get_ledger().verify()
+
+
+# ── Frontend static serving (single-service deploy) ───────────────────────────
+_frontend_dir = Path(__file__).resolve().parent.parent / "frontend"
+
+@app.get("/")
+def serve_index():
+    index_file = _frontend_dir / "index.html"
+    if index_file.exists():
+        return FileResponse(index_file)
+    return {"message": "SkillForge Backend API v2.0", "docs": "/docs", "health": "/health"}
+
+@app.get("/styles.css")
+def serve_css():
+    css_file = _frontend_dir / "styles.css"
+    if css_file.exists():
+        return FileResponse(css_file, media_type="text/css")
+    raise HTTPException(status_code=404, detail="styles.css not found")
+
+@app.get("/app.js")
+def serve_js():
+    js_file = _frontend_dir / "app.js"
+    if js_file.exists():
+        return FileResponse(js_file, media_type="application/javascript")
+    raise HTTPException(status_code=404, detail="app.js not found")
+
+
+# ── Startup ────────────────────────────────────────────────────────────────────
+
+@app.on_event("startup")
+async def startup():
+    Path("output").mkdir(exist_ok=True)
+    Path("skills/definitions").mkdir(parents=True, exist_ok=True)
+    provider = get_provider()
+    print(f"SkillForge API v2 started | demo_mode={DEMO_MODE} | model={provider.model_name} | live={provider.model is not None}")
+
+
+if __name__ == "__main__":
+    import uvicorn
+    port = int(os.environ.get("PORT", 8000))
+    uvicorn.run(app, host="0.0.0.0", port=port, reload=False)

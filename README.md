@@ -1,4 +1,5 @@
-# HackGuide 🧭
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/chourasiavinit9-dev/hackday)
+[![Deploy to DigitalOcean](https://www.deploytodo.com/do-btn-blue.svg)](https://cloud.digitalocean.com/apps/new?repo=https://github.com/chourasiavinit9-dev/hackday/tree/main)
 
 > A Gemma 4-powered hackathon mentor that thinks out loud, calls real tools, and builds you a complete project plan in 30 seconds.
 
@@ -43,21 +44,37 @@ graph TD
 | PyYAML | SKILL.md frontmatter parsing |
 | Agent Skill Open Standard | Modular skill architecture (SKILL.md) |
 
-## 🚀 Quick Start
+## 🚀 Quick Start & Deployment
 
+### Local Development
 ```bash
-git clone https://github.com/chourasiavinit9-dev/hackguide
-cd hackguide
+git clone https://github.com/chourasiavinit9-dev/hackday
+cd hackday/skillforge/backend
 pip install -r requirements.txt
 cp .env.example .env          # add your GEMINI_API_KEY
-bash scripts/run_demo.sh      # validates SKILL.md then starts the agent
+python main.py                # serves backend API & web UI at http://localhost:8000
 ```
 
-Or manually:
+### 🟣 Deploy to Render (with Open Source PostgreSQL)
+1. Fork or push to your GitHub: `https://github.com/chourasiavinit9-dev/hackday`
+2. In the [Render Dashboard](https://dashboard.render.com), click **New +** → **Blueprint**.
+3. Select your repository. Render automatically reads [`render.yaml`](render.yaml):
+   - Provisions an open-source **PostgreSQL 16** database (`skillforge-db`).
+   - Automatically connects `DATABASE_URL` to the backend.
+   - Deploys the **FastAPI agent runtime** and static frontend.
+4. Set `GEMINI_API_KEY` under the backend environment variables tab.
+
+### 🌊 Deploy to DigitalOcean App Platform
+1. In the DigitalOcean console, click **Create App** → **GitHub**.
+2. Select `chourasiavinit9-dev/hackday`. DigitalOcean automatically uses [`.do/deploy.template.yaml`](.do/deploy.template.yaml):
+   - Provisions a DigitalOcean **Managed PostgreSQL** instance.
+   - Injects `${skillforge-db.DATABASE_URL}` into runtime.
+   - Runs health checks and auto-deploys on push.
+
+### 🐳 Open Source Local / VPS (Docker Compose)
+Run with your own open-source PostgreSQL instance locally or on any DigitalOcean Droplet:
 ```bash
-export GEMINI_API_KEY=your_key_here
-python skill_validator.py     # verify SKILL.md compliance first
-python main.py
+GEMINI_API_KEY=your_key docker compose up -d
 ```
 
 ## 🎯 Prize Tracks

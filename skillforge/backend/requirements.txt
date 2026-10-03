@@ -1,0 +1,25 @@
+# ── Core AI ───────────────────────────────────────────────────────────────────
+google-generativeai>=0.8.0
+
+# ── Database (SQLite built-in; psycopg2 for Render/DigitalOcean PostgreSQL) ───
+psycopg2-binary>=2.9.0
+
+# ── Web server ────────────────────────────────────────────────────────────────
+fastapi>=0.110.0
+uvicorn[standard]>=0.29.0
+tornado>=6.4
+
+# ── Utilities ─────────────────────────────────────────────────────────────────
+pydantic>=2.0.0
+python-dotenv>=1.0.0
+pyyaml>=6.0
+rich>=13.0.0
+pillow>=10.0.0
+
+# ── Scraping / search ─────────────────────────────────────────────────────────
+trafilatura>=1.9.0
+duckduckgo-search>=6.0.0
+
+# ── Voice (optional — install separately via install_whisper.sh) ──────────────
+# openai-whisper
+# sounddevice

@@ -1,0 +1,43 @@
+version: "3.8"
+
+services:
+  # ─── Open-source PostgreSQL Database ──────────────────────────────────────────
+  db:
+    image: postgres:16-alpine
+    container_name: skillforge-db
+    restart: always
+    environment:
+      POSTGRES_DB: skillforge
+      POSTGRES_USER: skillforge
+      POSTGRES_PASSWORD: skillforge_secret_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U skillforge -d skillforge"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # ─── SkillForge Backend & UI ──────────────────────────────────────────────────
+  backend:
+    build:
+      context: .
+      dockerfile: skillforge/backend/Dockerfile
+    container_name: skillforge-app
+    restart: always
+    ports:
+      - "8000:8000"
+    environment:
+      - PORT=8000
+      - DATABASE_URL=postgresql://skillforge:skillforge_secret_password@db:5432/skillforge
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - GEMMA_MODEL=gemma-4-26b-a4b-it
+      - SKILLFORGE_DEMO=false
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  pgdata:

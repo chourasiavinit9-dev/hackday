@@ -1,0 +1,52 @@
+# SkillForge — Render Deployment Configuration
+# Backend: Python/FastAPI web service
+# Static: Frontend HTML/JS served as static site
+
+services:
+  # ─── Backend API ─────────────────────────────────────────────────────────────
+  - type: web
+    name: skillforge-backend
+    runtime: python
+    rootDir: skillforge/backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: python main.py
+    plan: free
+    envVars:
+      - key: PORT
+        value: 8000
+      - key: SKILLFORGE_DEMO
+        value: false
+      - key: SKILLFORGE_DB
+        value: /tmp/skillforge.db
+      - key: GEMINI_API_KEY
+        sync: false   # set manually in Render dashboard from Environment tab
+      - key: GEMMA_MODEL
+        value: gemma-4-26b-a4b-it
+      - key: DATABASE_URL
+        fromDatabase:
+          name: skillforge-db
+          property: connectionString
+    healthCheckPath: /health
+
+  # ─── Frontend Static Site ────────────────────────────────────────────────────
+  - type: web
+    name: skillforge-frontend
+    runtime: static
+    rootDir: skillforge/frontend
+    buildCommand: echo "No build needed — vanilla HTML/JS"
+    staticPublishPath: .
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    envVars:
+      - key: API_BASE
+        value: https://skillforge-backend.onrender.com
+
+# ─── PostgreSQL Database (open-source, Render managed) ───────────────────────
+# Used for the audit ledger (replaces local SQLite on production)
+databases:
+  - name: skillforge-db
+    plan: free
+    databaseName: skillforge
+    user: skillforge
