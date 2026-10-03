@@ -23,12 +23,12 @@
         </nav>
         <div class="side-label">Your skills</div>
         <div class="skill-shortcuts">
-          <button><span class="skill-dot pink">⌁</span>Web search</button>
-          <button><span class="skill-dot blue">◌</span>Webpage reader</button>
-          <button><span class="skill-dot yellow">▱</span>Job search</button>
-          <button><span class="skill-dot green">⌗</span>File creator</button>
-          <button><span class="skill-dot" style="background:#fce0e0;color:#d83c3c;">▶️</span>YouTube scraper</button>
-          <button><span class="skill-dot" style="background:#dff1ff;color:#1da1f2;">🐦</span>Twitter post</button>
+          <button data-skill-shortcut="Web search"><span class="skill-dot pink">⌁</span>Web search</button>
+          <button data-skill-shortcut="Webpage reader"><span class="skill-dot blue">◌</span>Webpage reader</button>
+          <button data-skill-shortcut="Job search"><span class="skill-dot yellow">▱</span>Job search</button>
+          <button data-skill-shortcut="File creator"><span class="skill-dot green">⌗</span>File creator</button>
+          <button data-skill-shortcut="YouTube scraper"><span class="skill-dot" style="background:#fce0e0;color:#d83c3c;">▶️</span>YouTube scraper</button>
+          <button data-skill-shortcut="Twitter post"><span class="skill-dot" style="background:#dff1ff;color:#1da1f2;">🐦</span>Twitter post</button>
         </div>
         <div class="sidebar-bottom"><div class="open-source"><span class="green-dot"></span>Open-source runtime <span class="live-pill">LIVE</span></div><button class="help-button">? <span>Help & docs</span><span>↗</span></button></div>
       </aside>
@@ -53,12 +53,12 @@
           <div class="command-footer">
             <div class="attached-skills">
               <span class="muted-label">Skills selected</span>
-              <span class="tag pink-tag">⌁ interview-research</span>
-              <span class="tag blue-tag">◌ webpage-reader</span>
-              <span class="tag green-tag">⌗ file-creator</span>
-              <span class="tag" style="background:#fce0e0;color:#d83c3c;">▶️ youtube-scraper</span>
-              <span class="tag" id="twitterTagBtn" style="background:#dff1ff;color:#1da1f2;cursor:pointer" title="Click to automate Twitter/X">🐦 twitter-post</span>
-              <button class="add-skill" aria-label="Add skill">＋</button>
+              <span class="tag pink-tag" id="tagInterviewResearch" title="Click to load Interview Research workflow">⌁ interview-research</span>
+              <span class="tag blue-tag" id="tagWebpageReader" title="Click to load Webpage Reader workflow">◌ webpage-reader</span>
+              <span class="tag green-tag" id="tagFileCreator" title="Click to load File Creator workflow">⌗ file-creator</span>
+              <span class="tag" id="tagYoutubeScraper" style="background:#fce0e0;color:#d83c3c;" title="Click to load YouTube Scraper workflow">▶️ youtube-scraper</span>
+              <span class="tag" id="twitterTagBtn" style="background:#dff1ff;color:#1da1f2;" title="Click to load Twitter workflow">🐦 twitter-post</span>
+              <button class="add-skill" id="addSkillBtn" aria-label="Add skill" title="Attach new skill">＋</button>
             </div>
             <div style="display:flex;align-items:center;gap:8px">
               <button class="ghost-button" id="cancelWorkflowBtn" style="display:none;color:#d83c3c;border-color:#f2c5c5">✕ Cancel</button>

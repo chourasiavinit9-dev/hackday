@@ -640,6 +640,109 @@
   max-width: 140px;
 }
 
+/* ── GitHub Repositories Grid ───────────────────────────────────────────── */
+.github-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 16px;
+  margin-top: 16px;
+}
+.github-card {
+  border: 1px solid #e2ddd5;
+  border-radius: 14px;
+  padding: 16px 18px;
+  background: #ffffff;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  box-shadow: 0 4px 14px rgba(40, 30, 20, 0.04);
+  transition: all 0.2s ease;
+}
+.github-card:hover {
+  transform: translateY(-2px);
+  border-color: #24292e;
+  box-shadow: 0 8px 24px rgba(40, 30, 20, 0.09);
+}
+.github-card-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.github-pill {
+  font: 600 10px 'DM Mono', monospace;
+  background: #f1f2f4;
+  color: #24292e;
+  padding: 3px 8px;
+  border-radius: 6px;
+}
+.github-title-link {
+  font: 700 15px 'Space Grotesk', sans-serif;
+  color: #0969da;
+  text-decoration: none;
+  line-height: 1.35;
+}
+.github-title-link:hover {
+  text-decoration: underline;
+  color: #0550ae;
+}
+.github-snippet-text {
+  font-size: 12.5px;
+  color: #57606a;
+  line-height: 1.5;
+  margin: 0;
+  flex: 1;
+}
+.github-footer-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-top: 1px solid #f0ebe4;
+  padding-top: 10px;
+  margin-top: auto;
+}
+.github-visit-btn {
+  font: 600 11px 'DM Mono', monospace;
+  color: #24292e;
+  background: #f6f8fa;
+  border: 1px solid #d0d7de;
+  padding: 6px 12px;
+  border-radius: 7px;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  transition: all 0.18s ease;
+}
+.github-visit-btn:hover {
+  background: #24292e;
+  color: #ffffff !important;
+  border-color: #24292e;
+}
+
+/* ── Interactive Tags ────────────────────────────────────────────────────── */
+.attached-skills .tag {
+  cursor: pointer;
+  user-select: none;
+  transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.attached-skills .tag:hover {
+  transform: translateY(-2px);
+  filter: brightness(0.96);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08);
+}
+.attached-skills .tag:active {
+  transform: translateY(0);
+}
+.add-skill {
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+.add-skill:hover {
+  background: #dfd9ce;
+  color: #201e22;
+  transform: scale(1.05);
+}
+
 /* ── Direct Skills Runner Panel ─────────────────────────────────────────── */
 .skills-panel {
   margin: 24px 0;

@@ -549,6 +549,10 @@ function extractWebResultsFromData(result, event) {
     const toolResults = result?.tool_results || event?.tool_results || [];
     for (const item of toolResults) {
       const res = item?.result;
+      if (res && Array.isArray(res.sources) && res.sources.length > 0) {
+        webResults = res.sources;
+        break;
+      }
       if (res && Array.isArray(res.results) && res.results.length > 0) {
         webResults = res.results;
         break;
@@ -563,6 +567,35 @@ function extractWebResultsFromData(result, event) {
       snippet: item.snippet || ''
     };
   });
+}
+
+function extractGithubFromData(result, event) {
+  let githubResults = [];
+  if (Array.isArray(result?.github_results) && result.github_results.length > 0) {
+    githubResults = result.github_results;
+  } else if (Array.isArray(event?.github_results) && event.github_results.length > 0) {
+    githubResults = event.github_results;
+  }
+
+  if (githubResults.length === 0) {
+    const toolResults = result?.tool_results || event?.tool_results || [];
+    for (const item of toolResults) {
+      const toolName = item?.tool || '';
+      if (toolName.includes('github')) {
+        const res = item?.result;
+        if (res && Array.isArray(res.results) && res.results.length > 0) {
+          githubResults = res.results;
+          break;
+        }
+      }
+    }
+  }
+
+  return githubResults.map(item => ({
+    title: item.title || 'GitHub Repository',
+    url: item.url || 'https://github.com',
+    snippet: item.snippet || ''
+  }));
 }
 
 function extractJobsFromData(result, event, isDemoRun = false) {
@@ -652,6 +685,7 @@ function renderResultPanel(result, event) {
   const tweets = extractTweetsFromData(result, event);
   const videos = extractVideosFromData(result, event);
   const web_results = extractWebResultsFromData(result, event);
+  const github_results = extractGithubFromData(result, event);
   const jobs = extractJobsFromData(result, event, isDemoRun);
   const questions = extractQuestionsFromData(result, event, isDemoRun);
   const report = result?.summary || result?.report_content || event?.detail || '';
@@ -663,7 +697,13 @@ function renderResultPanel(result, event) {
   let title = 'Findings & Synthesis Report';
   let badgeText = 'Workflow Complete';
 
-  if (serverIntent === 'twitter' || tweets.length > 0 || goalLower.includes('twitter') || goalLower.includes('tweet') || goalLower.includes('x.com')) {
+  const isInterview = goalLower.includes('interview') || goalLower.includes('question') || goalLower.includes('process') || goalLower.includes('fresher') || goalLower.includes('round') || goalLower.includes('company background') || goalLower.includes('answer');
+
+  if (serverIntent === 'report' || isInterview) {
+    primaryTab = 'report';
+    title = 'Interview & Company Research Findings';
+    badgeText = 'Verified Dossier Ready';
+  } else if (serverIntent === 'twitter' || tweets.length > 0 || goalLower.includes('twitter') || goalLower.includes('tweet') || goalLower.includes('x.com')) {
     primaryTab = tweets.length > 0 ? 'tweets' : 'report';
     title = 'Twitter / X Intelligence Findings';
     badgeText = `${tweets.length} Posts Found`;
@@ -671,11 +711,15 @@ function renderResultPanel(result, event) {
     primaryTab = videos.length > 0 ? 'videos' : 'report';
     title = 'YouTube Video Discoveries';
     badgeText = `${videos.length} Videos Found`;
+  } else if (github_results.length > 0 || goalLower.includes('github') || goalLower.includes('repository') || goalLower.includes('repo')) {
+    primaryTab = github_results.length > 0 ? 'github' : 'report';
+    title = 'GitHub Repository Discoveries';
+    badgeText = `${github_results.length} Repos Found`;
   } else if (serverIntent === 'jobs' || jobs.length > 0 || goalLower.includes('job') || goalLower.includes('hiring') || goalLower.includes('career')) {
     primaryTab = jobs.length > 0 ? 'jobs' : 'report';
     title = 'Findings & Job Opportunities';
     badgeText = `${jobs.length} Jobs Found`;
-  } else if (serverIntent === 'web' || web_results.length > 0 || goalLower.includes('search') || goalLower.includes('find') || goalLower.includes('lookup')) {
+  } else if (serverIntent === 'web' || web_results.length > 0) {
     primaryTab = web_results.length > 0 ? 'web' : 'report';
     title = 'Web Search Findings';
     badgeText = `${web_results.length} Sources Found`;
@@ -683,14 +727,20 @@ function renderResultPanel(result, event) {
 
   // Build dynamic navigation tabs based on what actual content exists
   const tabs = [];
-  if (tweets.length > 0) {
-    tabs.push({ id: 'tweets', label: `🐦 Twitter / X Posts (${tweets.length})` });
+  if (primaryTab === 'report') {
+    tabs.push({ id: 'report', label: '📄 Full Dossier & Report' });
+  }
+  if (web_results.length > 0) {
+    tabs.push({ id: 'web', label: `🌐 Web Sources (${web_results.length})` });
   }
   if (videos.length > 0) {
     tabs.push({ id: 'videos', label: `▶️ YouTube Videos (${videos.length})` });
   }
-  if (web_results.length > 0) {
-    tabs.push({ id: 'web', label: `🌐 Web Findings (${web_results.length})` });
+  if (tweets.length > 0) {
+    tabs.push({ id: 'tweets', label: `🐦 Twitter / X Posts (${tweets.length})` });
+  }
+  if (github_results.length > 0) {
+    tabs.push({ id: 'github', label: `⌥ GitHub Repos (${github_results.length})` });
   }
   if (jobs.length > 0) {
     tabs.push({ id: 'jobs', label: `💼 Job Opportunities (${jobs.length})` });
@@ -698,7 +748,9 @@ function renderResultPanel(result, event) {
   if (Object.keys(questions).length > 0) {
     tabs.push({ id: 'questions', label: `❓ Interview Focus Areas` });
   }
-  tabs.push({ id: 'report', label: `📄 Full Preparation Report` });
+  if (primaryTab !== 'report') {
+    tabs.push({ id: 'report', label: '📄 Full Report' });
+  }
 
   if (!tabs.some(t => t.id === primaryTab)) {
     primaryTab = tabs[0]?.id || 'report';
@@ -708,6 +760,7 @@ function renderResultPanel(result, event) {
     tweets,
     videos,
     web_results,
+    github_results,
     jobs,
     questions,
     report,
@@ -738,7 +791,7 @@ function updateResultBody() {
   const body = $('#resultBody');
   if (!body) return;
 
-  const { activeTab, tweets, videos, web_results, jobs, questions, report } = activeResultData;
+  const { activeTab, tweets, videos, web_results, github_results, jobs, questions, report } = activeResultData;
 
   $$('.result-tab').forEach(tab => {
     if (tab.dataset.tab === activeTab) {
@@ -848,6 +901,33 @@ function updateResultBody() {
                   Visit Webpage <span>↗</span>
                 </a>
                 <span class="web-domain-text">${domain}</span>
+              </div>
+            </div>
+          `;
+        }).join('')}
+      </div>
+    `;
+  } else if (activeTab === 'github') {
+    if (!github_results || github_results.length === 0) {
+      body.innerHTML = `<div style="padding:24px;text-align:center;color:#78716a">No GitHub repositories returned for this query. Check Full Report for details.</div>`;
+      return;
+    }
+    body.innerHTML = `
+      <div class="github-grid">
+        ${github_results.map((repo, idx) => {
+          return `
+            <div class="github-card" data-idx="${idx}">
+              <div class="github-card-top">
+                <span class="github-pill">⌥ Open Source</span>
+              </div>
+              <a href="${repo.url}" target="_blank" rel="noopener noreferrer" class="github-title-link">
+                ${repo.title || 'GitHub Repository'} ↗
+              </a>
+              <p class="github-snippet-text">${repo.snippet || 'Public repository inspection via Agent-Reach.'}</p>
+              <div class="github-footer-actions">
+                <a href="${repo.url}" target="_blank" rel="noopener noreferrer" class="github-visit-btn">
+                  Inspect on GitHub <span>↗</span>
+                </a>
               </div>
             </div>
           `;
@@ -1391,21 +1471,32 @@ if (closeResultBtn) {
   });
 }
 
-// Skill shortcut buttons — inject predefined prompts & auto-run for Twitter
+function highlightInput(el) {
+  if (!el) return;
+  el.style.transition = 'background 0.3s ease, box-shadow 0.3s ease';
+  el.style.background = '#fffde7';
+  el.style.boxShadow = '0 0 0 3px rgba(200, 83, 145, 0.25)';
+  setTimeout(() => {
+    el.style.background = '';
+    el.style.boxShadow = '';
+  }, 800);
+}
+
+// Skill shortcut buttons in sidebar
 $$('.skill-shortcuts button').forEach(button => {
-  const label = button.lastChild.nodeValue.trim();
+  const shortcut = button.dataset.skillShortcut || button.textContent.replace(/^[^\w\s]+/, '').trim();
   button.addEventListener('click', () => {
-    const prompt = SKILL_PROMPTS[label];
+    const prompt = SKILL_PROMPTS[shortcut];
     if (prompt) {
       goalInput.value = prompt;
-      goalInput.style.background = '#fffde7';
-      setTimeout(() => goalInput.style.background = '', 600);
+      if (skillInput) skillInput.value = prompt;
+      highlightInput(goalInput);
       goalInput.focus();
       switchView('agent');
       window.scrollTo({ top: 0, behavior: 'smooth' });
 
-      // If clicking Twitter post, agent executes automatically!
-      if (label === 'Twitter post') {
+      // If clicking Twitter post, agent executes automatically if configured
+      if (shortcut === 'Twitter post') {
         const settings = getSettings();
         if (settings.twitterConnected && settings.twitterAutoPost) {
           setTimeout(() => {
@@ -1417,19 +1508,70 @@ $$('.skill-shortcuts button').forEach(button => {
   });
 });
 
-// Twitter tag button in command card
+// Interactive Attached Skills tags in command card
+const tagInterview = $('#tagInterviewResearch');
+if (tagInterview) {
+  tagInterview.addEventListener('click', () => {
+    const prompt = 'Find TCS interview questions from last year for fresher software engineers, with suggested answers, process breakdown, and source links.';
+    goalInput.value = prompt;
+    if (skillInput) skillInput.value = 'TCS interview questions for fresher software engineers';
+    highlightInput(goalInput);
+    goalInput.focus();
+  });
+}
+
+const tagReader = $('#tagWebpageReader');
+if (tagReader) {
+  tagReader.addEventListener('click', () => {
+    const prompt = 'Read the content from https://en.wikipedia.org/wiki/Machine_learning and summarize the key concepts.';
+    goalInput.value = prompt;
+    if (skillInput) skillInput.value = 'https://en.wikipedia.org/wiki/Machine_learning';
+    highlightInput(goalInput);
+    goalInput.focus();
+  });
+}
+
+const tagFile = $('#tagFileCreator');
+if (tagFile) {
+  tagFile.addEventListener('click', () => {
+    const prompt = 'Create a structured interview preparation report for Wipro technical rounds and save it as a markdown file.';
+    goalInput.value = prompt;
+    if (skillInput) skillInput.value = 'Wipro technical interview preparation report';
+    highlightInput(goalInput);
+    goalInput.focus();
+  });
+}
+
+const tagYoutube = $('#tagYoutubeScraper');
+if (tagYoutube) {
+  tagYoutube.addEventListener('click', () => {
+    const prompt = 'Search YouTube for TCS interview experiences and summarize the useful advice.';
+    goalInput.value = prompt;
+    if (skillInput) skillInput.value = 'TCS interview experiences fresher';
+    highlightInput(goalInput);
+    goalInput.focus();
+  });
+}
+
 const twitterTagBtn = $('#twitterTagBtn');
 if (twitterTagBtn) {
   twitterTagBtn.addEventListener('click', () => {
-    const prompt = SKILL_PROMPTS['Twitter post'];
+    const prompt = 'Search Twitter for recent discussion about TCS and Wipro interview experiences.';
     goalInput.value = prompt;
-    switchView('agent');
-    const settings = getSettings();
-    if (settings.twitterConnected && settings.twitterAutoPost) {
-      runLiveWorkflow(prompt);
-    } else {
-      goalInput.focus();
-    }
+    if (skillInput) skillInput.value = 'TCS interview experience';
+    highlightInput(goalInput);
+    goalInput.focus();
+  });
+}
+
+const addSkillBtn = $('#addSkillBtn');
+if (addSkillBtn) {
+  addSkillBtn.addEventListener('click', () => {
+    const prompt = 'Inspect the public repository https://github.com/Panniantong/Agent-Reach and explain its research tool capabilities.';
+    goalInput.value = prompt;
+    if (skillInput) skillInput.value = 'https://github.com/Panniantong/Agent-Reach';
+    highlightInput(goalInput);
+    goalInput.focus();
   });
 }
 
@@ -1566,14 +1708,21 @@ for (const button of skillButtons) {
 
 async function runDirectSkill(button) {
   const skillId = button.dataset.skill;
-  const userInput = (skillInput ? skillInput.value : '').trim();
+  let userInput = (skillInput ? skillInput.value : '').trim();
+
+  // If direct skill input is empty, fallback to goal input
+  if (!userInput && goalInput) {
+    userInput = goalInput.value.trim();
+    if (skillInput && userInput) skillInput.value = userInput;
+  }
 
   if (!userInput) {
     if (skillStatus) {
-      skillStatus.textContent = "Enter a topic or URL first.";
+      skillStatus.textContent = "Please enter an interview topic, company name, or URL first.";
       skillStatus.className = "skill-error";
     }
     if (skillInput) skillInput.focus();
+    else if (goalInput) goalInput.focus();
     return;
   }
 
@@ -1599,9 +1748,14 @@ async function runDirectSkill(button) {
       throw new Error(data.detail || data.error || "The skill could not run.");
     }
 
+    // Render findings under the main Result Section (#resultPanel)
+    renderDirectSkillInResultPanel(data, skillId, userInput);
+
+    // Also display feedback in direct runner card
     showDirectSkillResult(data);
+
     if (skillStatus) {
-      skillStatus.textContent = "Skill finished.";
+      skillStatus.textContent = "✓ Skill executed successfully. Results displayed under Result Section below.";
       skillStatus.className = "";
     }
     refreshLedger();
@@ -1615,6 +1769,144 @@ async function runDirectSkill(button) {
   }
 }
 
+function renderDirectSkillInResultPanel(data, skillId, userInput) {
+  const panel = $('#resultPanel');
+  if (!panel) return;
+
+  const rawResults = Array.isArray(data.results) ? data.results : [];
+  let tweets = [];
+  let videos = [];
+  let web_results = [];
+  let github_results = [];
+
+  let report = `# ${data.title || 'Skill Execution Results'}\n\n`;
+  if (data.summary) {
+    report += `${data.summary}\n\n`;
+  }
+
+  if (rawResults.length > 0) {
+    report += `## Sourced Items & References\n\n`;
+    rawResults.forEach((r, idx) => {
+      report += `${idx + 1}. **[${r.title || 'Reference Link'}](${r.url || '#'})**\n`;
+      if (r.snippet) report += `   - ${r.snippet}\n\n`;
+    });
+  }
+
+  let primaryTab = 'report';
+  let badgeText = `${rawResults.length} Items Found`;
+  let title = data.title || 'Findings & Intelligence Results';
+
+  if (skillId === 'web_search') {
+    web_results = rawResults.map(r => ({
+      title: r.title || 'Web Search Result',
+      url: r.url || '#',
+      snippet: r.snippet || ''
+    }));
+    primaryTab = 'web';
+    badgeText = `${web_results.length} Sources Found`;
+    title = `Web Search Findings for '${userInput}'`;
+  } else if (skillId === 'youtube_search') {
+    videos = rawResults.map(r => {
+      let videoId = '';
+      const m = (r.url || '').match(/(?:v=|\/live\/|\/embed\/|\/watch\?v=|\.be\/)([a-zA-Z0-9_-]{11})/);
+      if (m) videoId = m[1];
+      return {
+        title: r.title || 'YouTube Video',
+        url: r.url || `https://www.youtube.com/watch?v=${videoId}`,
+        video_id: videoId,
+        channel: r.snippet && r.snippet.startsWith('Channel: ') ? r.snippet.replace('Channel: ', '') : '',
+        snippet: r.snippet || ''
+      };
+    });
+    primaryTab = 'videos';
+    badgeText = `${videos.length} Videos Found`;
+    title = `YouTube Video Discoveries for '${userInput}'`;
+  } else if (skillId === 'twitter_search') {
+    tweets = rawResults.map(r => ({
+      author: r.title || 'Twitter User',
+      handle: '',
+      text: r.snippet || '',
+      url: r.url || '#',
+      likes: 0,
+      reposts: 0,
+      replies: 0,
+      views: 0,
+      source: 'Twitter Search'
+    }));
+    primaryTab = 'tweets';
+    badgeText = `${tweets.length} Posts Found`;
+    title = `Twitter / X Posts for '${userInput}'`;
+  } else if (skillId === 'github_research') {
+    github_results = rawResults.map(r => ({
+      title: r.title || 'GitHub Repository',
+      url: r.url || '#',
+      snippet: r.snippet || ''
+    }));
+    primaryTab = 'github';
+    badgeText = `${github_results.length} Repositories Found`;
+    title = `GitHub Repositories for '${userInput}'`;
+  } else if (skillId === 'webpage_reader') {
+    web_results = rawResults.map(r => ({
+      title: r.title || 'Extracted Webpage',
+      url: r.url || '#',
+      snippet: r.snippet || ''
+    }));
+    primaryTab = 'report';
+    badgeText = `Page Extracted`;
+    title = `Extracted Webpage Content`;
+  }
+
+  activeResultData = {
+    tweets,
+    videos,
+    web_results,
+    github_results,
+    jobs: [],
+    questions: {},
+    report,
+    activeTab: primaryTab
+  };
+
+  const tabs = [];
+  if (primaryTab === 'report') {
+    tabs.push({ id: 'report', label: '📄 Full Report' });
+  }
+  if (web_results.length > 0) {
+    tabs.push({ id: 'web', label: `🌐 Web Sources (${web_results.length})` });
+  }
+  if (videos.length > 0) {
+    tabs.push({ id: 'videos', label: `▶️ YouTube Videos (${videos.length})` });
+  }
+  if (tweets.length > 0) {
+    tabs.push({ id: 'tweets', label: `🐦 Twitter / X Posts (${tweets.length})` });
+  }
+  if (github_results.length > 0) {
+    tabs.push({ id: 'github', label: `⌥ GitHub Repos (${github_results.length})` });
+  }
+  if (primaryTab !== 'report') {
+    tabs.push({ id: 'report', label: '📄 Full Report' });
+  }
+
+  const titleEl = $('#resultTitle');
+  if (titleEl) titleEl.textContent = title;
+  const badgeEl = $('#resultCountBadge');
+  if (badgeEl) badgeEl.textContent = badgeText;
+
+  const navTabs = $('.result-nav-tabs');
+  if (navTabs) {
+    navTabs.innerHTML = tabs.map(t => `
+      <button class="result-tab ${t.id === primaryTab ? 'active' : ''}" data-tab="${t.id}">${t.label}</button>
+    `).join('');
+  }
+
+  panel.style.display = 'flex';
+  updateResultBody();
+
+  setTimeout(() => {
+    panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, 100);
+}
+
 function showDirectSkillResult(data) {
   if (!skillAnswer) return;
   const card = document.createElement("section");
@@ -1624,15 +1916,6 @@ function showDirectSkillResult(data) {
   heading.textContent = data.title || "Results";
   card.append(heading);
 
-  // Direct action bar
-  const actionRow = document.createElement("div");
-  actionRow.style.cssText = "display:flex;gap:8px;margin-bottom:12pt";
-  actionRow.innerHTML = `
-    <button class="ghost-button" style="font-size:11px;padding:4px 10px" id="copyDirectSkillBtn">📋 Copy findings</button>
-    <button class="ghost-button" style="font-size:11px;padding:4px 10px" id="printDirectSkillBtn">📄 Export / Print</button>
-  `;
-  card.append(actionRow);
-
   if (data.summary) {
     const summary = document.createElement("p");
     summary.textContent = data.summary;
@@ -1641,11 +1924,9 @@ function showDirectSkillResult(data) {
 
   if (Array.isArray(data.results) && data.results.length) {
     const list = document.createElement("ul");
-
     for (const result of data.results) {
       const item = document.createElement("li");
       const link = document.createElement("a");
-
       link.href = result.url || "#";
       link.target = "_blank";
       link.rel = "noopener noreferrer";
@@ -1658,10 +1939,8 @@ function showDirectSkillResult(data) {
         snippet.textContent = result.snippet;
         item.append(snippet);
       }
-
       list.append(item);
     }
-
     card.append(list);
   } else if (!data.summary) {
     const empty = document.createElement("p");
@@ -1669,26 +1948,18 @@ function showDirectSkillResult(data) {
     card.append(empty);
   }
 
-  skillAnswer.replaceChildren(card);
+  // Jump to result section button
+  const jumpBtn = document.createElement("button");
+  jumpBtn.className = "primary-button";
+  jumpBtn.style.cssText = "font-size:11.5px;padding:8px 16px;margin-top:14px;display:inline-flex;align-items:center;gap:6px;background:#c85391;color:#fff;border-radius:8px;";
+  jumpBtn.innerHTML = "↓ View Full Findings in Result Section Below";
+  jumpBtn.addEventListener('click', () => {
+    const panel = $('#resultPanel');
+    if (panel) panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
+  card.append(jumpBtn);
 
-  // Wire up direct actions
-  const copyBtn = card.querySelector('#copyDirectSkillBtn');
-  if (copyBtn) {
-    copyBtn.addEventListener('click', () => {
-      const text = `${data.title}\n\n${data.summary || ''}\n\n` +
-        (data.results || []).map(r => `• ${r.title}: ${r.url}\n  ${r.snippet || ''}`).join('\n\n');
-      navigator.clipboard.writeText(text).then(() => {
-        copyBtn.textContent = '✓ Copied!';
-        setTimeout(() => copyBtn.textContent = '📋 Copy findings', 1500);
-      });
-    });
-  }
-  const printBtn = card.querySelector('#printDirectSkillBtn');
-  if (printBtn) {
-    printBtn.addEventListener('click', () => {
-      window.print();
-    });
-  }
+  skillAnswer.replaceChildren(card);
 }
 
 // ── Initial Load ──────────────────────────────────────────────────────────────
