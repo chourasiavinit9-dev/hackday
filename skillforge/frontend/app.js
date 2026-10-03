@@ -996,11 +996,55 @@ function updateResultBody() {
       </div>
     `;
   } else if (activeTab === 'report') {
-    const formatted = formatMarkdown(report || 'No detailed report text available.');
+    if (!report) {
+      body.innerHTML = `<div style="padding:24px;text-align:center;color:#78716a">No report text available. Run a skill or agent workflow to generate a report.</div>`;
+      return;
+    }
+    // Split into summary + sources for a nicer structured layout
+    const lines = report.trim().split('\n').filter(l => l.trim());
+    const firstHeading = lines[0] || '';
+    const summaryLines = [];
+    const sourceLines = [];
+    let inSources = false;
+    for (let i = 1; i < lines.length; i++) {
+      const l = lines[i];
+      if (/## Sourced Items|## Sources|## References/i.test(l)) { inSources = true; continue; }
+      if (inSources) sourceLines.push(l);
+      else summaryLines.push(l);
+    }
+    const summaryText = summaryLines.join(' ').trim();
+    // Parse numbered source items like: 1. **[Title](url)**  - snippet
+    const parsedSources = [];
+    const sourceRegex = /\d+\.\s+\*\*\[([^\]]+)\]\(([^)]+)\)\*\*(?:[\s\S]*?-\s*(.+?))?(?=\n\d+\.|$)/gim;
+    let srcMatch;
+    const srcText = sourceLines.join('\n');
+    while ((srcMatch = sourceRegex.exec(srcText)) !== null) {
+      let domain = 'source';
+      try { domain = new URL(srcMatch[2]).hostname.replace(/^www\./, ''); } catch {}
+      parsedSources.push({ title: srcMatch[1], url: srcMatch[2], snippet: srcMatch[3]?.trim() || '', domain });
+    }
+    const sourcesHTML = parsedSources.length > 0
+      ? `<div class="report-sources-section">
+          <h4>📎 Sourced References (${parsedSources.length})</h4>
+          ${parsedSources.map((s, i) => `
+            <a href="${s.url}" target="_blank" rel="noopener noreferrer" class="report-source-item">
+              <div class="report-source-num">${i + 1}</div>
+              <div class="report-source-content">
+                <strong>${s.title}</strong>
+                ${s.snippet ? `<p>${s.snippet}</p>` : ''}
+                <span class="report-source-domain">↗ ${s.domain}</span>
+              </div>
+            </a>
+          `).join('')}
+        </div>`
+      : (sourceLines.length > 0 ? `<div class="report-markdown-view">${formatMarkdown(sourceLines.join('\n'))}</div>` : '');
     body.innerHTML = `
-      <div class="report-markdown-view">
-        ${formatted}
+      <div class="report-summary-box">
+        <h3>📋 ${firstHeading.replace(/^#+\s*/, '') || 'Skill Execution Report'}</h3>
+        <p>${summaryText ? formatMarkdown(summaryText) : 'Skill executed successfully. See sourced references below.'}</p>
       </div>
+      ${sourcesHTML}
+      ${!sourcesHTML && !summaryText ? `<div class="report-markdown-view">${formatMarkdown(report)}</div>` : ''}
     `;
   }
 }
@@ -1653,9 +1697,9 @@ const moreBtn = $('.more-button');
 if (moreBtn) moreBtn.addEventListener('click', () => $('.ledger-panel').scrollIntoView({ behavior: 'smooth', block: 'center' }));
 
 // Add skill (+) button
-const addSkillBtn = $('.add-skill');
-if (addSkillBtn) {
-  addSkillBtn.addEventListener('click', () => {
+const addSkillPlusBtn = $('.add-skill');
+if (addSkillPlusBtn) {
+  addSkillPlusBtn.addEventListener('click', () => {
     goalInput.value = 'Create a new skill that can scrape and summarize news articles from any URL I provide.';
     goalInput.style.background = '#fffde7';
     setTimeout(() => goalInput.style.background = '', 600);
@@ -1779,6 +1823,7 @@ function renderDirectSkillInResultPanel(data, skillId, userInput) {
   let web_results = [];
   let github_results = [];
 
+  const topicLabel = userInput.length > 60 ? userInput.slice(0, 60) + '…' : userInput;
   let report = `# ${data.title || 'Skill Execution Results'}\n\n`;
   if (data.summary) {
     report += `${data.summary}\n\n`;
@@ -1961,6 +2006,113 @@ function showDirectSkillResult(data) {
 
   skillAnswer.replaceChildren(card);
 }
+
+// ── Automation Instruction Bar Logic ─────────────────────────────────────────
+const automationRunBtn = document.getElementById('automationRunBtn');
+const automationInstructionTA = document.getElementById('automation-instruction');
+
+// Chip click → populate instruction textarea
+document.querySelectorAll('.automation-chip').forEach(chip => {
+  chip.addEventListener('click', () => {
+    const instr = chip.dataset.instruction || '';
+    if (automationInstructionTA) {
+      automationInstructionTA.value = instr;
+      automationInstructionTA.focus();
+      // Visual feedback
+      document.querySelectorAll('.automation-chip').forEach(c => c.classList.remove('selected'));
+      chip.classList.add('selected');
+      setTimeout(() => chip.classList.remove('selected'), 1500);
+    }
+  });
+});
+
+// Run automation button → fire full agent workflow
+if (automationRunBtn && automationInstructionTA) {
+  automationRunBtn.addEventListener('click', () => {
+    const topic = (skillInput ? skillInput.value : '').trim() || (goalInput ? goalInput.value : '').trim();
+    const instruction = automationInstructionTA.value.trim();
+    if (!instruction && !topic) {
+      if (skillStatus) {
+        skillStatus.textContent = '⚠ Please enter a topic and an automation instruction first.';
+        skillStatus.className = 'skill-error';
+      }
+      automationInstructionTA.focus();
+      return;
+    }
+    // Build a full compound goal for the agent
+    let fullGoal;
+    if (topic && instruction) {
+      fullGoal = `Topic: "${topic}"\n\nInstruction: ${instruction}`;
+    } else if (instruction) {
+      fullGoal = instruction;
+    } else {
+      fullGoal = `Research this topic thoroughly and create a full structured report: "${topic}"`;
+    }
+    // Copy to main goal input and fire
+    if (goalInput) goalInput.value = fullGoal;
+    switchView('agent');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    if (skillStatus) {
+      skillStatus.textContent = '▶ Agent workflow started — see Live Activity & Results below...';
+      skillStatus.className = '';
+    }
+    setTimeout(() => runLiveWorkflow(fullGoal), 350);
+  });
+}
+
+// ── Install as Skill Modal ────────────────────────────────────────────────────
+const installSkillModal = document.getElementById('installSkillModal');
+const installSkillBtn = document.getElementById('installSkillBtn');
+const closeInstallSkillModal = document.getElementById('closeInstallSkillModal');
+
+function openInstallModal() {
+  if (installSkillModal) {
+    installSkillModal.classList.add('open');
+    installSkillModal.setAttribute('aria-hidden', 'false');
+  }
+}
+
+function closeInstallModal() {
+  if (installSkillModal) {
+    installSkillModal.classList.remove('open');
+    installSkillModal.setAttribute('aria-hidden', 'true');
+  }
+}
+
+if (installSkillBtn) installSkillBtn.addEventListener('click', openInstallModal);
+if (closeInstallSkillModal) closeInstallSkillModal.addEventListener('click', closeInstallModal);
+if (installSkillModal) {
+  installSkillModal.addEventListener('click', (e) => {
+    if (e.target === installSkillModal) closeInstallModal();
+  });
+}
+
+// Copy-to-clipboard for all .install-copy-btn buttons
+document.querySelectorAll('.install-copy-btn').forEach(btn => {
+  btn.addEventListener('click', async () => {
+    const text = btn.dataset.copy || '';
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch {
+      // Fallback for older browsers
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+    }
+    const orig = btn.textContent;
+    btn.textContent = '✓ Copied!';
+    btn.classList.add('copied');
+    setTimeout(() => {
+      btn.textContent = orig;
+      btn.classList.remove('copied');
+    }, 2000);
+  });
+});
 
 // ── Initial Load ──────────────────────────────────────────────────────────────
 refreshLedger();

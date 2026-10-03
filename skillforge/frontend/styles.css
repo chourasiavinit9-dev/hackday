@@ -2,6 +2,135 @@
 /* Graph positions are explicit so connector elements cannot affect node order. */
 .graph-node[data-node="goal"]{top:2px}.graph-node[data-node="gemma"]{top:51px}.graph-node[data-node="search"]{top:100px}.graph-node[data-node="reader"]{top:149px}.graph-node[data-node="extract"]{top:198px}.graph-node[data-node="file"]{top:247px}.graph-node[data-node="result"]{top:296px}
 
+/* ── Sidebar Action Buttons ───────────────────────────────────────────────── */
+.sidebar-action-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 9px 10px;
+  border-radius: 9px;
+  font: 600 11.5px 'DM Mono', monospace;
+  cursor: pointer;
+  text-decoration: none;
+  transition: all 0.18s ease;
+  margin-bottom: 6px;
+  border: 1px solid transparent;
+}
+
+.install-skill-btn {
+  background: linear-gradient(135deg, #ede8ff, #fdf0f8);
+  color: #5b3d8a;
+  border-color: #d8c8f0;
+}
+
+.install-skill-btn:hover {
+  background: #5b3d8a;
+  color: #fff;
+  border-color: #5b3d8a;
+  box-shadow: 0 4px 12px rgba(91,61,138,0.25);
+  transform: translateX(2px);
+}
+
+.github-push-btn {
+  background: linear-gradient(135deg, #eaf3ee, #e8f4f8);
+  color: #2d6a4f;
+  border-color: #c0e0d0;
+}
+
+.github-push-btn:hover {
+  background: #24292f;
+  color: #fff;
+  border-color: #24292f;
+  box-shadow: 0 4px 12px rgba(36,41,47,0.25);
+  transform: translateX(2px);
+}
+
+/* ── Install Skill Modal ──────────────────────────────────────────────────── */
+.install-block {
+  background: #f8f5ff;
+  border: 1px solid #e2d8f5;
+  border-radius: 11px;
+  padding: 14px 16px;
+}
+
+.install-block-label {
+  font: 700 11px 'DM Mono', monospace;
+  color: #5b3d8a;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  margin-bottom: 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.install-recommended {
+  background: #5b3d8a;
+  color: #fff;
+  font: 700 9px 'DM Mono', monospace;
+  padding: 2px 7px;
+  border-radius: 10px;
+  letter-spacing: 0.3px;
+}
+
+.install-code-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #1a1721;
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin-bottom: 8px;
+  overflow: hidden;
+}
+
+.install-code-row code {
+  flex: 1;
+  font: 12px 'DM Mono', monospace;
+  color: #c8f0b8;
+  word-break: break-all;
+  white-space: pre-wrap;
+  line-height: 1.4;
+}
+
+.install-copy-btn {
+  flex: none;
+  padding: 5px 10px;
+  background: rgba(255,255,255,0.12);
+  color: #e8e2f5;
+  border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 6px;
+  font: 600 10px 'DM Mono', monospace;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.install-copy-btn:hover {
+  background: rgba(255,255,255,0.22);
+  color: #fff;
+}
+
+.install-copy-btn.copied {
+  background: #78b25a;
+  color: #fff;
+  border-color: #78b25a;
+}
+
+.install-note {
+  font-size: 11px;
+  color: #8a7faa;
+  line-height: 1.5;
+  display: block;
+}
+
+.install-note a {
+  color: #7b5bca;
+  text-decoration: underline;
+}
+
+
 /* ── Result Panel & Job Listings ────────────────────────────────────────── */
 .result-panel {
   display: flex;
@@ -839,6 +968,225 @@
 .skill-result a:hover { text-decoration: underline; color: #c85391; }
 .skill-result .snippet { margin: 4px 0 0; color: #69636d; font-size: 13px; line-height: 1.45; }
 .skill-error { color: #a52f2f !important; font-weight: 600; }
+
+/* ── Automation Instruction Bar ─────────────────────────────────────────────── */
+.automation-bar {
+  margin-top: 20px;
+  padding: 18px 20px;
+  background: linear-gradient(135deg, #fdf0f8 0%, #f0f4ff 100%);
+  border: 1.5px solid #e2d0ef;
+  border-radius: 14px;
+  box-shadow: 0 4px 18px rgba(100,60,140,0.07);
+}
+
+.automation-bar-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.automation-bar-icon {
+  font-size: 22px;
+  flex: none;
+  margin-top: 2px;
+}
+
+.automation-bar-header strong {
+  display: block;
+  font: 700 14px 'Space Grotesk', sans-serif;
+  color: #3a2d5a;
+  margin-bottom: 3px;
+}
+
+.automation-bar-header small {
+  font-size: 11.5px;
+  color: #7a6f9a;
+  line-height: 1.45;
+}
+
+.automation-examples {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.automation-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 12px;
+  border-radius: 20px;
+  font: 600 11.5px 'DM Mono', monospace;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  border: 1px solid #d0c0e8;
+  background: #ffffff;
+  color: #5b3d8a;
+  user-select: none;
+}
+
+.automation-chip:hover {
+  background: #5b3d8a;
+  color: #ffffff;
+  border-color: #5b3d8a;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(91,61,138,0.25);
+}
+
+.automation-chip.selected {
+  background: #c85391;
+  color: #ffffff;
+  border-color: #c85391;
+}
+
+.automation-input-row {
+  display: flex;
+  gap: 10px;
+  align-items: flex-end;
+}
+
+.automation-textarea {
+  flex: 1;
+  padding: 12px 14px;
+  border: 1.5px solid #d6c4eb;
+  border-radius: 11px;
+  font: 13.5px 'DM Sans', sans-serif;
+  color: var(--ink);
+  background: #ffffff;
+  resize: none;
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  line-height: 1.5;
+}
+
+.automation-textarea:focus {
+  border-color: #c85391;
+  box-shadow: 0 0 0 3px rgba(200,83,145,0.12);
+}
+
+.automation-run-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 12px 20px;
+  background: linear-gradient(135deg, #c85391, #7b3fa0);
+  color: #ffffff;
+  border: none;
+  border-radius: 11px;
+  font: 700 13px 'Space Grotesk', sans-serif;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 14px rgba(200,83,145,0.3);
+}
+
+.automation-run-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 22px rgba(200,83,145,0.4);
+  background: linear-gradient(135deg, #d4619f, #8f4db5);
+}
+
+.automation-run-btn:disabled {
+  opacity: 0.6;
+  cursor: wait;
+  transform: none;
+}
+
+/* ── Result Report View ──────────────────────────────────────────────────────── */
+.report-summary-box {
+  background: linear-gradient(135deg, #f9f5ff 0%, #fff8fa 100%);
+  border: 1.5px solid #e0d0f0;
+  border-radius: 12px;
+  padding: 18px 20px;
+  margin-bottom: 20px;
+}
+
+.report-summary-box h3 {
+  margin: 0 0 10px;
+  font: 700 16px 'Space Grotesk', sans-serif;
+  color: #3a2d5a;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.report-summary-box p {
+  margin: 0;
+  font-size: 14px;
+  color: #4e4860;
+  line-height: 1.65;
+}
+
+.report-sources-section {
+  margin-top: 20px;
+}
+
+.report-sources-section h4 {
+  font: 700 13px 'DM Mono', monospace;
+  color: #8a8096;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  margin: 0 0 12px;
+}
+
+.report-source-item {
+  display: flex;
+  gap: 14px;
+  padding: 14px 16px;
+  border: 1px solid #ede7f7;
+  border-radius: 11px;
+  margin-bottom: 10px;
+  background: #ffffff;
+  transition: all 0.18s ease;
+  text-decoration: none;
+  color: inherit;
+}
+
+.report-source-item:hover {
+  border-color: #c85391;
+  box-shadow: 0 4px 14px rgba(200,83,145,0.1);
+  transform: translateX(3px);
+}
+
+.report-source-num {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: #f0e8fc;
+  color: #7b3fa0;
+  font: 700 11px 'DM Mono', monospace;
+  display: grid;
+  place-items: center;
+  flex: none;
+  margin-top: 2px;
+}
+
+.report-source-content strong {
+  display: block;
+  font: 600 14px 'Space Grotesk', sans-serif;
+  color: #3a2d5a;
+  margin-bottom: 4px;
+  text-decoration: none;
+}
+
+.report-source-content p {
+  margin: 0;
+  font-size: 12.5px;
+  color: #706a7d;
+  line-height: 1.5;
+}
+
+.report-source-domain {
+  display: inline-block;
+  margin-top: 6px;
+  font: 10px 'DM Mono', monospace;
+  color: #c85391;
+  background: #fdf0f8;
+  padding: 2px 7px;
+  border-radius: 5px;
+}
 
 /* ── PDF Export & Print Stylesheet ─────────────────────────────────────────── */
 @media print {

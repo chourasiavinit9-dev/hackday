@@ -30,7 +30,16 @@
           <button data-skill-shortcut="YouTube scraper"><span class="skill-dot" style="background:#fce0e0;color:#d83c3c;">▶️</span>YouTube scraper</button>
           <button data-skill-shortcut="Twitter post"><span class="skill-dot" style="background:#dff1ff;color:#1da1f2;">🐦</span>Twitter post</button>
         </div>
-        <div class="sidebar-bottom"><div class="open-source"><span class="green-dot"></span>Open-source runtime <span class="live-pill">LIVE</span></div><button class="help-button">? <span>Help & docs</span><span>↗</span></button></div>
+        <div class="sidebar-bottom">
+          <div class="open-source"><span class="green-dot"></span>Open-source runtime <span class="live-pill">LIVE</span></div>
+          <button class="sidebar-action-btn install-skill-btn" id="installSkillBtn" title="Install SkillForge as an AGY skill on your CLI">
+            <span>📦</span> <span>Install as Skill</span>
+          </button>
+          <a class="sidebar-action-btn github-push-btn" href="https://github.com/chourasiavinit9-dev/hackday" target="_blank" rel="noopener noreferrer" id="githubPushBtn" title="View & push to GitHub repository">
+            <span>⌥</span> <span>GitHub repo ↗</span>
+          </a>
+          <button class="help-button">? <span>Help & docs</span><span>↗</span></button>
+        </div>
       </aside>
 
       <main class="main-content">
@@ -76,11 +85,11 @@
             </div>
             <span class="verified-badge" style="background:#fbf2f7;color:#69425b;border-color:#eadde5">5 ACTIVE SKILLS</span>
           </div>
-          <p class="skills-help">Enter a topic or URL, then click a skill to run real work immediately.</p>
+          <p class="skills-help">Enter a topic or URL, then click a skill button — or write an automation instruction below and let the agent handle everything.</p>
 
           <textarea
             id="skill-input"
-            placeholder="Enter an interview topic, company name (e.g. TCS, Wipro), webpage URL, YouTube topic, or GitHub repo…"
+            placeholder="Enter a topic, company name (e.g. TCS, Wipro), webpage URL, YouTube topic, or GitHub repo…"
           ></textarea>
 
           <div class="skill-buttons">
@@ -89,6 +98,35 @@
             <button type="button" data-skill="youtube_search">▶ YouTube search</button>
             <button type="button" data-skill="twitter_search">𝕏 Twitter search</button>
             <button type="button" data-skill="github_research">⌥ GitHub research</button>
+          </div>
+
+          <!-- ── Automation Instruction Bar ──────────────────────────── -->
+          <div class="automation-bar" id="automationBar">
+            <div class="automation-bar-header">
+              <span class="automation-bar-icon">🤖</span>
+              <div>
+                <strong>Automation instruction</strong>
+                <small>Tell the agent what to do with the topic above — it will plan, search, and act automatically</small>
+              </div>
+            </div>
+            <div class="automation-examples">
+              <span class="automation-chip" data-instruction="Search this topic and write a Twitter post summarizing the findings, then post it on my Twitter">𝕏 Write &amp; post to Twitter</span>
+              <span class="automation-chip" data-instruction="Research this topic thoroughly and create a full structured report with sources and key insights">📄 Create full report</span>
+              <span class="automation-chip" data-instruction="Find the top YouTube videos about this topic and summarize what each one covers">▶ Summarize YouTube videos</span>
+              <span class="automation-chip" data-instruction="Search the web for this topic, extract the most important facts, and present them in a clear structured summary">🌐 Extract key facts</span>
+              <span class="automation-chip" data-instruction="Find relevant GitHub repositories for this topic, read their READMEs, and give me a comparison report">⌥ Compare GitHub repos</span>
+            </div>
+            <div class="automation-input-row">
+              <textarea
+                id="automation-instruction"
+                class="automation-textarea"
+                placeholder="e.g. Search for AI agent frameworks, write a Twitter post about the top 3, and post it automatically…"
+                rows="2"
+              ></textarea>
+              <button class="automation-run-btn" id="automationRunBtn" type="button">
+                <span>▶</span> Run automation
+              </button>
+            </div>
           </div>
 
           <p id="skill-status" role="status"></p>
@@ -232,6 +270,43 @@
         <div class="modal-actions" style="margin-top:20px">
           <button class="ghost-button" id="cancelSettingsBtn">Cancel</button>
           <button class="primary-button" id="saveSettingsBtn">Save Settings</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Install as Skill Modal ─────────────────────────────────────────── -->
+    <div class="modal-backdrop" id="installSkillModal" aria-hidden="true">
+      <div class="approval-modal" style="max-width:540px">
+        <button class="modal-close" id="closeInstallSkillModal">×</button>
+        <div class="risk-icon" style="background:#ede8ff;color:#5b3d8a;font-size:22px">📦</div>
+        <span class="section-kicker" style="color:#5b3d8a">OPEN SOURCE · AGENT SKILL</span>
+        <h2 style="font:700 22px 'Space Grotesk';margin:8px 0 4px">Install SkillForge on your CLI</h2>
+        <p style="font-size:12.5px;color:#7a6f9a;line-height:1.5;margin:0 0 20px">SkillForge is packaged as an open-source <b>Agent Skill</b> compatible with the <b>Antigravity (AGY) CLI</b>. Anyone can install it in one command and run it as a first-class skill.</p>
+
+        <!-- Install via AGY CLI -->
+        <div class="install-block">
+          <div class="install-block-label">⚡ Install via AGY CLI <span class="install-recommended">Recommended</span></div>
+          <div class="install-code-row" id="agyCopyRow">
+            <code id="agyInstallCmd">agy skill install https://github.com/chourasiavinit9-dev/hackday</code>
+            <button class="install-copy-btn" data-copy="agy skill install https://github.com/chourasiavinit9-dev/hackday" title="Copy command">⎘ Copy</button>
+          </div>
+          <small class="install-note">Requires the <a href="https://antigravity.dev" target="_blank" rel="noopener noreferrer">Antigravity CLI</a> — installs SkillForge as a persistent skill on your workspace.</small>
+        </div>
+
+        <!-- Install via pip -->
+        <div class="install-block" style="margin-top:12px">
+          <div class="install-block-label">🐍 Clone &amp; run locally</div>
+          <div class="install-code-row">
+            <code id="pipInstallCmd">git clone https://github.com/chourasiavinit9-dev/hackday &amp;&amp; cd hackday/skillforge/backend &amp;&amp; pip install -r requirements.txt &amp;&amp; python main.py</code>
+            <button class="install-copy-btn" data-copy="git clone https://github.com/chourasiavinit9-dev/hackday && cd hackday/skillforge/backend && pip install -r requirements.txt && python main.py" title="Copy command">⎘ Copy</button>
+          </div>
+          <small class="install-note">Needs Python 3.11+ and a <code style="font-size:10px;background:#f3f0ff;padding:1px 5px;border-radius:4px">GEMINI_API_KEY</code> in your <code style="font-size:10px;background:#f3f0ff;padding:1px 5px;border-radius:4px">.env</code></small>
+        </div>
+
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:16px">
+          <a href="https://github.com/chourasiavinit9-dev/hackday" target="_blank" rel="noopener noreferrer" class="primary-button" style="display:inline-flex;align-items:center;gap:6px;font-size:12px;padding:9px 16px;background:#24292f;color:#fff;text-decoration:none;border-radius:9px">⌥ View on GitHub ↗</a>
+          <a href="https://github.com/chourasiavinit9-dev/hackday/blob/main/SKILL.md" target="_blank" rel="noopener noreferrer" class="ghost-button" style="display:inline-flex;align-items:center;gap:6px;font-size:12px;padding:9px 16px;text-decoration:none">📋 Read SKILL.md ↗</a>
+          <a href="https://github.com/chourasiavinit9-dev/hackday/archive/refs/heads/main.zip" class="ghost-button" style="display:inline-flex;align-items:center;gap:6px;font-size:12px;padding:9px 16px;text-decoration:none">⬇ Download ZIP</a>
         </div>
       </div>
     </div>
