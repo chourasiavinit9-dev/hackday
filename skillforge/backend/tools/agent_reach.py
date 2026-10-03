@@ -198,18 +198,59 @@ def reach_web_search(query: str, num_results: int = 5) -> dict:
 
 def reach_github_search(query: str, num_results: int = 5) -> dict:
     """
-    Search GitHub repositories and issues via DuckDuckGo site filter.
+    Search GitHub repositories via DuckDuckGo site filter + GitHub REST API fallback.
     Agent-Reach supports GitHub as a zero-config platform.
     """
     t0 = time.time()
-    results = _ddg_search(query, num=num_results, site="github.com")
+
+    results: list[dict] = []
+
+    # 1. DDG with site filter (Agent-Reach pattern)
+    ddg_results = _ddg_search(query, num=num_results, site="github.com")
+    for r in ddg_results:
+        if "error" not in r and r.get("url", "").startswith("http"):
+            results.append(r)
+
+    # 2. GitHub REST Search API fallback (no auth, 10 req/min)
+    if len(results) < num_results:
+        try:
+            encoded = urllib.parse.urlencode({"q": query, "sort": "stars", "per_page": num_results})
+            gh_url  = f"https://api.github.com/search/repositories?{encoded}"
+            req = urllib.request.Request(
+                gh_url,
+                headers={
+                    "User-Agent":  "SkillForge-AgentReach/1.0",
+                    "Accept":      "application/vnd.github+json",
+                    "X-GitHub-Api-Version": "2022-11-28"
+                }
+            )
+            with urllib.request.urlopen(req, timeout=REQUEST_TIMEOUT) as resp:
+                data = json.loads(resp.read().decode("utf-8", errors="ignore"))
+
+            existing_urls = {r["url"] for r in results}
+            for item in data.get("items", [])[:num_results]:
+                url = item.get("html_url", "")
+                if url and url not in existing_urls:
+                    results.append({
+                        "title":   item.get("full_name", item.get("name", "")),
+                        "url":     url,
+                        "snippet": (item.get("description") or "") +
+                                   f" ★{item.get('stargazers_count', 0)} | {item.get('language', '')}",
+                        "source":  "agent_reach/github_api"
+                    })
+                    existing_urls.add(url)
+        except Exception as exc:
+            results.append({"error": str(exc), "source": "agent_reach/github_api"})
+
+    real = [r for r in results if "error" not in r]
     return {
-        "query":      query,
-        "results":    results,
-        "count":      len([r for r in results if "error" not in r]),
-        "source":     "agent_reach/github_ddg",
+        "query":       query,
+        "results":     results[:num_results],
+        "count":       len(real),
+        "source":      "agent_reach/github_ddg+api",
         "duration_ms": int((time.time() - t0) * 1000)
     }
+
 
 
 def reach_research(topic: str, read_top_result: bool = True) -> dict:
