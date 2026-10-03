@@ -363,34 +363,76 @@ async def execute_workflow(request: AgentRequest) -> AsyncGenerator[dict, None]:
     except asyncio.TimeoutError:
         synthesis = provider._offline_synthesis(request.goal, all_results)
 
-    # Collect structured entities from all_results to ensure frontend gets first-class jobs, questions, urls
+    # Collect structured entities from all_results to ensure frontend gets first-class jobs, tweets, videos, web results, questions, urls
     collected_jobs = []
+    collected_tweets = []
+    collected_videos = []
+    collected_web_results = []
     collected_questions = {}
     collected_urls = []
     for item in all_results:
         res = item.get("result", {})
         if isinstance(res, dict):
+            # Tweets
+            if res.get("tweets"):
+                for t in res["tweets"]:
+                    if isinstance(t, dict):
+                        collected_tweets.append(t)
+                        if t.get("url"):
+                            collected_urls.append({"title": f"Tweet by @{t.get('handle') or 'user'}", "url": t["url"], "type": "tweet"})
+            # YouTube videos
+            if res.get("videos"):
+                for v in res["videos"]:
+                    if isinstance(v, dict):
+                        collected_videos.append(v)
+                        if v.get("url"):
+                            collected_urls.append({"title": v.get("title", "YouTube Video"), "url": v["url"], "type": "video"})
+            # Web search results
+            if res.get("results"):
+                for w in res["results"]:
+                    if isinstance(w, dict):
+                        collected_web_results.append(w)
+                        if w.get("url"):
+                            collected_urls.append({"title": w.get("title", "Web Page"), "url": w["url"], "type": "web"})
+            # Job opportunities
             if res.get("jobs"):
                 for j in res["jobs"]:
                     if isinstance(j, dict):
                         collected_jobs.append(j)
                         if j.get("url"):
                             collected_urls.append({"title": j.get("title", "Job Listing"), "url": j["url"], "type": "job"})
-            if res.get("results"):
-                for w in res["results"]:
-                    if isinstance(w, dict) and w.get("url"):
-                        collected_urls.append({"title": w.get("title", "Web Page"), "url": w["url"], "type": "web"})
+            # Interview questions
             if res.get("grouped_questions"):
                 collected_questions.update(res["grouped_questions"])
+            # Extracted webpage
             if res.get("url") and res["url"] not in [u.get("url") for u in collected_urls]:
                 collected_urls.append({"title": res.get("title", "Extracted Page"), "url": res["url"], "type": "page"})
 
+    # Determine primary entity / intent
+    primary_intent = "general"
+    goal_lower = (request.goal or "").lower()
+    if collected_tweets or any(k in goal_lower for k in ["twitter", "tweet", "x.com"]):
+        primary_intent = "twitter"
+    elif collected_videos or any(k in goal_lower for k in ["youtube", "video", "watch"]):
+        primary_intent = "youtube"
+    elif collected_jobs or any(k in goal_lower for k in ["job", "interview", "career", "hiring"]):
+        primary_intent = "jobs"
+    elif collected_web_results or any(k in goal_lower for k in ["search", "find", "google", "lookup"]):
+        primary_intent = "web"
+
+    if collected_tweets and "tweets" not in synthesis:
+        synthesis["tweets"] = collected_tweets
+    if collected_videos and "videos" not in synthesis:
+        synthesis["videos"] = collected_videos
+    if collected_web_results and "web_results" not in synthesis:
+        synthesis["web_results"] = collected_web_results
     if collected_jobs and "jobs" not in synthesis:
         synthesis["jobs"] = collected_jobs
     if collected_questions and "grouped_questions" not in synthesis:
         synthesis["grouped_questions"] = collected_questions
     if collected_urls and "urls" not in synthesis:
         synthesis["urls"] = collected_urls
+    synthesis["intent_type"] = primary_intent
     synthesis["tool_results"] = all_results
 
     # Auto-save if the synthesis produced file content
@@ -418,6 +460,10 @@ async def execute_workflow(request: AgentRequest) -> AsyncGenerator[dict, None]:
         "type":         "complete",
         "run_id":       run_id,
         "result":       synthesis,
+        "intent_type":  primary_intent,
+        "tweets":       collected_tweets,
+        "videos":       collected_videos,
+        "web_results":  collected_web_results,
         "jobs":         collected_jobs,
         "questions":    collected_questions,
         "urls":         collected_urls,

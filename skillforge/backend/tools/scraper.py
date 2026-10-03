@@ -123,7 +123,7 @@ def ddg_search(query: str, num_results: int = 5, safe_search: str = "moderate") 
             "engine": "ddg",
             "duration_ms": int((time.time() - t0) * 1000)
         }
-    except ImportError:
+    except Exception:
         pass
 
     # Fallback: DDG Lite (plain HTML, no JS needed, minimal anti-bot)

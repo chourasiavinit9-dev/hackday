@@ -276,5 +276,57 @@ class TestToolRegistry(unittest.TestCase):
         self.assertFalse(result["verified"])
 
 
+
+# ── Multi-Entity Collection & Synthesis ────────────────────────────────────────
+
+class TestEntityCollectionAndSynthesis(unittest.TestCase):
+    def test_offline_synthesis_formats_tweets(self):
+        from agent.gemma_provider import GemmaProvider
+        provider = GemmaProvider()
+        tool_results = [
+            {
+                "tool": "twitter_search",
+                "result": {
+                    "tweets": [
+                        {
+                            "author": "GDG London @gdglondon",
+                            "handle": "gdglondon",
+                            "text": "Join us at Hackney venue! Register here: https://gdg.community.dev/hackney",
+                            "url": "https://x.com/gdglondon/status/123456",
+                            "likes": 42,
+                            "reposts": 12
+                        }
+                    ]
+                }
+            }
+        ]
+        synth = provider._offline_synthesis("GDG Hackney venue twitter", tool_results)
+        self.assertIn("Relevant Twitter / X Posts", synth["summary"])
+        self.assertIn("gdglondon", synth["summary"])
+        self.assertIn("https://x.com/gdglondon/status/123456", synth["summary"])
+
+    def test_offline_synthesis_formats_videos(self):
+        from agent.gemma_provider import GemmaProvider
+        provider = GemmaProvider()
+        tool_results = [
+            {
+                "tool": "youtube_search",
+                "result": {
+                    "videos": [
+                        {
+                            "title": "Agentic AI Workshop",
+                            "url": "https://youtube.com/watch?v=abc12345678",
+                            "channel": "Tech Channel"
+                        }
+                    ]
+                }
+            }
+        ]
+        synth = provider._offline_synthesis("agentic AI youtube", tool_results)
+        self.assertIn("YouTube Videos Found", synth["summary"])
+        self.assertIn("https://youtube.com/watch?v=abc12345678", synth["summary"])
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
+

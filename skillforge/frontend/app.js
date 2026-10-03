@@ -309,27 +309,29 @@ function handleWorkflowEvent(event) {
     setModal(true, approval);
   }
 
-  // Show final result summary in timeline and render rich result panel with job cards & URLs
-  if ((type === 'complete' || type === 'workflow_complete') && (result || event.jobs || event.tool_results)) {
-    renderResultPanel(result, event);
-    const summary = result?.summary || '';
-    if (summary && timeline) {
-      const item = document.createElement('div');
-      item.className = 'timeline-item done';
-      item.innerHTML = `<span class="timeline-marker">✦</span><div><b>Workflow complete</b><small style="white-space:normal;line-height:1.4">${summary.slice(0, 80)}…</small></div>`;
-      timeline.prepend(item);
-    }
-    // Auto-post notification to Discord if connected
-    const settings = getSettings();
-    if (settings.discordConnected && settings.discordNotify) {
-      fetch(`${API_BASE}/api/discord/test`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          webhook_url: settings.discordWebhook,
-          message: `🚀 **SkillForge Automation Complete**:\n${summary.slice(0, 250) || 'Action executed successfully.'}`
-        })
-      }).catch(() => {});
+  // Show final result summary in timeline and render rich result panel with Twitter, YouTube, Web, and Job cards & URLs
+  if (type === 'complete' || type === 'workflow_complete') {
+    if (result || event.jobs || event.tweets || event.videos || event.web_results || event.tool_results || event.detail) {
+      renderResultPanel(result, event);
+      const summary = result?.summary || event?.detail || '';
+      if (summary && timeline) {
+        const item = document.createElement('div');
+        item.className = 'timeline-item done';
+        item.innerHTML = `<span class="timeline-marker">✦</span><div><b>Workflow complete</b><small style="white-space:normal;line-height:1.4">${summary.slice(0, 80)}…</small></div>`;
+        timeline.prepend(item);
+      }
+      // Auto-post notification to Discord if connected
+      const settings = getSettings();
+      if (settings.discordConnected && settings.discordNotify) {
+        fetch(`${API_BASE}/api/discord/test`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            webhook_url: settings.discordWebhook,
+            message: `🚀 **SkillForge Automation Complete**:\n${summary.slice(0, 250) || 'Action executed successfully.'}`
+          })
+        }).catch(() => {});
+      }
     }
   }
 
@@ -352,10 +354,13 @@ function handleWorkflowEvent(event) {
 
 // ── Result Panel Renderer & Job Cards ─────────────────────────────────────────
 let activeResultData = {
+  tweets: [],
+  videos: [],
+  web_results: [],
   jobs: [],
   questions: {},
   report: '',
-  activeTab: 'jobs'
+  activeTab: 'report'
 };
 
 const DEFAULT_DEMO_JOBS = [
@@ -451,7 +456,134 @@ function formatMarkdown(text) {
   return html;
 }
 
-function extractJobsFromData(result, event) {
+function formatTweetText(text) {
+  if (!text) return '';
+  let escaped = text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+  // URLs
+  escaped = escaped.replace(/(https?:\/\/[^\s]+)/g, '<a href="$1" target="_blank" rel="noopener noreferrer">$1 ↗</a>');
+  // Hashtags
+  escaped = escaped.replace(/#([A-Za-z0-9_]+)/g, '<a href="https://x.com/hashtag/$1" target="_blank" rel="noopener noreferrer" style="color:#1d9bf0">#$1</a>');
+  // Mentions
+  escaped = escaped.replace(/@([A-Za-z0-9_]+)/g, '<a href="https://x.com/$1" target="_blank" rel="noopener noreferrer" style="color:#1d9bf0">@$1</a>');
+  return escaped.replace(/\n/g, '<br>');
+}
+
+function extractTweetsFromData(result, event) {
+  let tweets = [];
+  if (Array.isArray(result?.tweets) && result.tweets.length > 0) {
+    tweets = result.tweets;
+  } else if (Array.isArray(event?.tweets) && event.tweets.length > 0) {
+    tweets = event.tweets;
+  }
+
+  if (tweets.length === 0) {
+    const toolResults = result?.tool_results || event?.tool_results || [];
+    for (const item of toolResults) {
+      const res = item?.result;
+      if (res && Array.isArray(res.tweets) && res.tweets.length > 0) {
+        tweets = res.tweets;
+        break;
+      }
+    }
+  }
+
+  return tweets.map(tw => {
+    const author = tw.author || 'Twitter User';
+    let handle = tw.handle || '';
+    if (!handle || handle.length > 30) {
+      const m = author.match(/@([A-Za-z0-9_]+)/);
+      handle = m ? m[1] : '';
+    }
+    handle = handle.replace(/^@/, '');
+    let url = tw.url;
+    if (!url || url === 'N/A') {
+      url = handle ? `https://x.com/${handle}` : `https://x.com/search?q=${encodeURIComponent(tw.text?.slice(0, 50) || 'twitter')}`;
+    }
+    return {
+      author,
+      handle,
+      text: tw.text || tw.title || '',
+      url,
+      likes: tw.likes || 0,
+      reposts: tw.reposts || 0,
+      replies: tw.replies || 0,
+      views: tw.views || 0,
+      source: tw.source || 'Live X Scrape'
+    };
+  });
+}
+
+function extractVideosFromData(result, event) {
+  let videos = [];
+  if (Array.isArray(result?.videos) && result.videos.length > 0) {
+    videos = result.videos;
+  } else if (Array.isArray(event?.videos) && event.videos.length > 0) {
+    videos = event.videos;
+  }
+
+  if (videos.length === 0) {
+    const toolResults = result?.tool_results || event?.tool_results || [];
+    for (const item of toolResults) {
+      const res = item?.result;
+      if (res && Array.isArray(res.videos) && res.videos.length > 0) {
+        videos = res.videos;
+        break;
+      }
+    }
+  }
+
+  return videos.map(vid => {
+    let url = vid.url || '';
+    let videoId = vid.video_id || '';
+    if (!videoId && url) {
+      const m = url.match(/(?:v=|\/live\/|\/embed\/|\/watch\?v=|\.be\/)([a-zA-Z0-9_-]{11})/);
+      if (m) videoId = m[1];
+    }
+    if (!url && videoId) {
+      url = `https://www.youtube.com/watch?v=${videoId}`;
+    }
+    return {
+      title: vid.title || 'YouTube Video',
+      url: url || 'https://www.youtube.com',
+      video_id: videoId,
+      channel: vid.channel || '',
+      snippet: vid.snippet || ''
+    };
+  });
+}
+
+function extractWebResultsFromData(result, event) {
+  let webResults = [];
+  if (Array.isArray(result?.web_results) && result.web_results.length > 0) {
+    webResults = result.web_results;
+  } else if (Array.isArray(event?.web_results) && event.web_results.length > 0) {
+    webResults = event.web_results;
+  }
+
+  if (webResults.length === 0) {
+    const toolResults = result?.tool_results || event?.tool_results || [];
+    for (const item of toolResults) {
+      const res = item?.result;
+      if (res && Array.isArray(res.results) && res.results.length > 0) {
+        webResults = res.results;
+        break;
+      }
+    }
+  }
+
+  return webResults.map(item => {
+    return {
+      title: item.title || 'Web Search Result',
+      url: item.url || 'https://google.com',
+      snippet: item.snippet || ''
+    };
+  });
+}
+
+function extractJobsFromData(result, event, isDemoRun = false) {
   let jobs = [];
 
   if (Array.isArray(result?.jobs) && result.jobs.length > 0) {
@@ -471,8 +603,8 @@ function extractJobsFromData(result, event) {
     }
   }
 
-  // Parse markdown summary if structured jobs array was not present
-  if (jobs.length === 0 && result?.summary) {
+  // Parse markdown summary only if it specifically contains job opportunities
+  if (jobs.length === 0 && result?.summary && result.summary.includes('Job Opportunities')) {
     const summary = result.summary;
     const regex = /\d+\.\s+\*\*([^*]+)\*\*\s*[—–-]\s*([^(]+?)(?:\s*\(([^)]+)\))?\n(?:\s*-\s*\*\*Link:\*\*\s*([^\s\n]+))?(?:\n\s*-\s*\*\*Summary:\*\*\s*([^\n]+))?/g;
     let match;
@@ -488,26 +620,30 @@ function extractJobsFromData(result, event) {
     }
   }
 
-  if (jobs.length === 0) {
+  const goalLower = ($('#goalInput')?.value || '').toLowerCase();
+  const askedForJobs = goalLower.includes('job') || goalLower.includes('career') || goalLower.includes('hiring');
+
+  // ONLY fall back to demo jobs if this is an explicit demo or the user asked for jobs
+  if (jobs.length === 0 && (isDemoRun || askedForJobs)) {
     jobs = DEFAULT_DEMO_JOBS;
   }
 
   return jobs.map(job => {
     let url = job.url;
     if (!url || url === 'N/A' || url.startsWith('http://example.com') || url.startsWith('https://example.com')) {
-      url = `https://www.google.com/search?q=${encodeURIComponent((job.title || 'Python Data Scientist') + ' ' + (job.company || '') + ' jobs')}`;
+      url = `https://www.google.com/search?q=${encodeURIComponent((job.title || 'Position') + ' ' + (job.company || '') + ' jobs')}`;
     }
     return {
-      title: job.title || 'Python Data Scientist',
+      title: job.title || 'Job Opportunity',
       company: job.company || 'Direct Hire',
       location: job.location || 'Remote',
       url: url,
-      snippet: job.snippet || 'Seeking data science & machine learning engineering talent for predictive analytics and modeling pipelines.'
+      snippet: job.snippet || 'Job details and description available via the link.'
     };
   });
 }
 
-function extractQuestionsFromData(result, event) {
+function extractQuestionsFromData(result, event, isDemoRun = false) {
   let questions = result?.grouped_questions || event?.questions || {};
   if (Object.keys(questions).length === 0) {
     const toolResults = result?.tool_results || event?.tool_results || [];
@@ -518,7 +654,9 @@ function extractQuestionsFromData(result, event) {
       }
     }
   }
-  if (Object.keys(questions).length === 0) {
+  const goalLower = ($('#goalInput')?.value || '').toLowerCase();
+  const askedForQuestions = goalLower.includes('question') || goalLower.includes('interview');
+  if (Object.keys(questions).length === 0 && (isDemoRun || askedForQuestions)) {
     questions = DEFAULT_QUESTIONS;
   }
   return questions;
@@ -528,21 +666,83 @@ function renderResultPanel(result, event) {
   const panel = $('#resultPanel');
   if (!panel) return;
 
-  const jobs = extractJobsFromData(result, event);
-  const questions = extractQuestionsFromData(result, event);
-  const report = result?.summary || result?.report_content || '';
+  const isDemoRun = (result === null && event === null);
+  const tweets = extractTweetsFromData(result, event);
+  const videos = extractVideosFromData(result, event);
+  const web_results = extractWebResultsFromData(result, event);
+  const jobs = extractJobsFromData(result, event, isDemoRun);
+  const questions = extractQuestionsFromData(result, event, isDemoRun);
+  const report = result?.summary || result?.report_content || event?.detail || '';
+
+  const goalLower = ($('#goalInput')?.value || '').toLowerCase();
+  const serverIntent = result?.intent_type || event?.intent_type || '';
+
+  let primaryTab = 'report';
+  let title = 'Findings & Synthesis Report';
+  let badgeText = 'Workflow Complete';
+
+  if (serverIntent === 'twitter' || tweets.length > 0 || goalLower.includes('twitter') || goalLower.includes('tweet') || goalLower.includes('x.com')) {
+    primaryTab = tweets.length > 0 ? 'tweets' : 'report';
+    title = 'Twitter / X Intelligence Findings';
+    badgeText = `${tweets.length} Posts Found`;
+  } else if (serverIntent === 'youtube' || videos.length > 0 || goalLower.includes('youtube') || goalLower.includes('video') || goalLower.includes('watch')) {
+    primaryTab = videos.length > 0 ? 'videos' : 'report';
+    title = 'YouTube Video Discoveries';
+    badgeText = `${videos.length} Videos Found`;
+  } else if (serverIntent === 'jobs' || jobs.length > 0 || goalLower.includes('job') || goalLower.includes('hiring') || goalLower.includes('career')) {
+    primaryTab = jobs.length > 0 ? 'jobs' : 'report';
+    title = 'Findings & Job Opportunities';
+    badgeText = `${jobs.length} Jobs Found`;
+  } else if (serverIntent === 'web' || web_results.length > 0 || goalLower.includes('search') || goalLower.includes('find') || goalLower.includes('lookup')) {
+    primaryTab = web_results.length > 0 ? 'web' : 'report';
+    title = 'Web Search Findings';
+    badgeText = `${web_results.length} Sources Found`;
+  }
+
+  // Build dynamic navigation tabs based on what actual content exists
+  const tabs = [];
+  if (tweets.length > 0) {
+    tabs.push({ id: 'tweets', label: `🐦 Twitter / X Posts (${tweets.length})` });
+  }
+  if (videos.length > 0) {
+    tabs.push({ id: 'videos', label: `▶️ YouTube Videos (${videos.length})` });
+  }
+  if (web_results.length > 0) {
+    tabs.push({ id: 'web', label: `🌐 Web Findings (${web_results.length})` });
+  }
+  if (jobs.length > 0) {
+    tabs.push({ id: 'jobs', label: `💼 Job Opportunities (${jobs.length})` });
+  }
+  if (Object.keys(questions).length > 0) {
+    tabs.push({ id: 'questions', label: `❓ Interview Focus Areas` });
+  }
+  tabs.push({ id: 'report', label: `📄 Full Preparation Report` });
+
+  if (!tabs.some(t => t.id === primaryTab)) {
+    primaryTab = tabs[0]?.id || 'report';
+  }
 
   activeResultData = {
+    tweets,
+    videos,
+    web_results,
     jobs,
     questions,
     report,
-    activeTab: 'jobs'
+    activeTab: primaryTab
   };
 
-  const badge = $('#resultCountBadge');
-  if (badge) badge.textContent = `${jobs.length} Jobs Found`;
-  const tabJobCount = $('#tabJobCount');
-  if (tabJobCount) tabJobCount.textContent = jobs.length;
+  const titleEl = $('#resultTitle');
+  if (titleEl) titleEl.textContent = title;
+  const badgeEl = $('#resultCountBadge');
+  if (badgeEl) badgeEl.textContent = badgeText;
+
+  const navTabs = $('.result-nav-tabs');
+  if (navTabs) {
+    navTabs.innerHTML = tabs.map(t => `
+      <button class="result-tab ${t.id === primaryTab ? 'active' : ''}" data-tab="${t.id}">${t.label}</button>
+    `).join('');
+  }
 
   panel.style.display = 'flex';
   updateResultBody();
@@ -556,7 +756,7 @@ function updateResultBody() {
   const body = $('#resultBody');
   if (!body) return;
 
-  const { activeTab, jobs, questions, report } = activeResultData;
+  const { activeTab, tweets, videos, web_results, jobs, questions, report } = activeResultData;
 
   $$('.result-tab').forEach(tab => {
     if (tab.dataset.tab === activeTab) {
@@ -566,7 +766,117 @@ function updateResultBody() {
     }
   });
 
-  if (activeTab === 'jobs') {
+  if (activeTab === 'tweets') {
+    if (!tweets || tweets.length === 0) {
+      body.innerHTML = `<div style="padding:24px;text-align:center;color:#78716a">No tweets returned for this query. Check Full Report for details.</div>`;
+      return;
+    }
+    body.innerHTML = `
+      <div class="tweet-grid">
+        ${tweets.map((tw, idx) => {
+          const handleClean = (tw.handle || '').replace(/^@/, '');
+          const profileUrl = handleClean ? `https://x.com/${handleClean}` : tw.url;
+          return `
+            <div class="tweet-card" data-idx="${idx}">
+              <div class="tweet-card-top">
+                <div class="tweet-author-info">
+                  <div class="tweet-avatar">🐦</div>
+                  <div class="tweet-author-meta">
+                    <div class="tweet-author-name">${tw.author || 'Twitter User'} <span class="tweet-verified-badge" title="Verified source">✓</span></div>
+                    <a href="${profileUrl}" target="_blank" rel="noopener noreferrer" class="tweet-handle-link">@${handleClean || 'user'} ↗</a>
+                  </div>
+                </div>
+                <span class="tweet-source-pill">${tw.source || 'Live X Scrape'}</span>
+              </div>
+              <p class="tweet-body-text">${formatTweetText(tw.text)}</p>
+              <div class="tweet-metrics-row">
+                <span class="tweet-metric">❤️ ${tw.likes || 0}</span>
+                <span class="tweet-metric">🔁 ${tw.reposts || 0}</span>
+                <span class="tweet-metric">💬 ${tw.replies || 0}</span>
+                ${tw.views ? `<span class="tweet-metric">👁️ ${tw.views}</span>` : ''}
+              </div>
+              <div class="tweet-footer-actions">
+                <a href="${tw.url}" target="_blank" rel="noopener noreferrer" class="tweet-view-btn" title="Open tweet on X">
+                  View on X <span>↗</span>
+                </a>
+                <span class="tweet-domain">x.com</span>
+              </div>
+            </div>
+          `;
+        }).join('')}
+      </div>
+    `;
+  } else if (activeTab === 'videos') {
+    if (!videos || videos.length === 0) {
+      body.innerHTML = `<div style="padding:24px;text-align:center;color:#78716a">No videos returned for this query. Check Full Report for details.</div>`;
+      return;
+    }
+    body.innerHTML = `
+      <div class="video-grid">
+        ${videos.map((vid, idx) => {
+          const vidId = vid.video_id;
+          const thumb = vidId ? `https://img.youtube.com/vi/${vidId}/mqdefault.jpg` : '';
+          return `
+            <div class="video-card" data-idx="${idx}">
+              ${thumb ? `
+                <a href="${vid.url}" target="_blank" rel="noopener noreferrer" class="video-thumb-wrap">
+                  <img src="${thumb}" alt="${vid.title}" class="video-thumb-img" onerror="this.style.display='none'" />
+                  <div class="video-play-overlay">▶</div>
+                </a>
+              ` : ''}
+              <div class="video-card-content">
+                <a href="${vid.url}" target="_blank" rel="noopener noreferrer" class="video-title-link">
+                  ${vid.title}
+                </a>
+                ${vid.channel ? `<div class="video-channel-badge">📺 ${vid.channel}</div>` : ''}
+                <p class="video-snippet-text">${vid.snippet || ''}</p>
+                <div class="video-footer-actions">
+                  <a href="${vid.url}" target="_blank" rel="noopener noreferrer" class="video-watch-btn">
+                    Watch on YouTube <span>↗</span>
+                  </a>
+                  <span class="video-domain">youtube.com</span>
+                </div>
+              </div>
+            </div>
+          `;
+        }).join('')}
+      </div>
+    `;
+  } else if (activeTab === 'web') {
+    if (!web_results || web_results.length === 0) {
+      body.innerHTML = `<div style="padding:24px;text-align:center;color:#78716a">No web results returned for this query. Check Full Report for details.</div>`;
+      return;
+    }
+    body.innerHTML = `
+      <div class="web-grid">
+        ${web_results.map((item, idx) => {
+          let domain = 'web';
+          try { domain = new URL(item.url).hostname.replace(/^www\./, ''); } catch {}
+          return `
+            <div class="web-card" data-idx="${idx}">
+              <div class="web-card-top">
+                <span class="web-domain-pill">🌐 ${domain}</span>
+              </div>
+              <a href="${item.url}" target="_blank" rel="noopener noreferrer" class="web-title-link">
+                ${item.title || 'Web Search Result'}
+              </a>
+              <p class="web-snippet-text">${item.snippet || ''}</p>
+              <div class="web-footer-actions">
+                <a href="${item.url}" target="_blank" rel="noopener noreferrer" class="web-visit-btn">
+                  Visit Webpage <span>↗</span>
+                </a>
+                <span class="web-domain-text">${domain}</span>
+              </div>
+            </div>
+          `;
+        }).join('')}
+      </div>
+    `;
+  } else if (activeTab === 'jobs') {
+    if (!jobs || jobs.length === 0) {
+      body.innerHTML = `<div style="padding:24px;text-align:center;color:#78716a">No job listings found for this query.</div>`;
+      return;
+    }
     body.innerHTML = `
       <div class="job-grid">
         ${jobs.map((job, idx) => {
@@ -599,7 +909,11 @@ function updateResultBody() {
       </div>
     `;
   } else if (activeTab === 'questions') {
-    const cats = Object.keys(questions);
+    const cats = Object.keys(questions || {});
+    if (cats.length === 0) {
+      body.innerHTML = `<div style="padding:24px;text-align:center;color:#78716a">No interview questions extracted for this search.</div>`;
+      return;
+    }
     body.innerHTML = `
       <div class="questions-container">
         ${cats.map(cat => `

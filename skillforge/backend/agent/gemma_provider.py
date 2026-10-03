@@ -11,6 +11,7 @@ import json
 import re
 import time
 import signal
+import urllib.parse
 from typing import Optional
 
 from dotenv import load_dotenv
@@ -297,6 +298,28 @@ class GemmaProvider:
             data = r.get("result", {})
             if not isinstance(data, dict):
                 continue
+
+            # Twitter / X posts & updates
+            if data.get("tweets"):
+                sections.append("### Relevant Twitter / X Posts & Updates\n")
+                for i, tw in enumerate(data["tweets"][:6], 1):
+                    author = tw.get("author") or "Twitter User"
+                    handle = tw.get("handle") or ""
+                    handle_str = f" (@{handle})" if handle and not handle.startswith("@") else f" ({handle})" if handle else ""
+                    url = tw.get("url") or f"https://x.com/search?q={urllib.parse.quote_plus(goal)}"
+                    text = tw.get("text", "")
+                    metrics = []
+                    if tw.get("likes"):
+                        metrics.append(f"❤️ {tw['likes']}")
+                    if tw.get("reposts"):
+                        metrics.append(f"🔁 {tw['reposts']}")
+                    metric_str = f" · {' '.join(metrics)}" if metrics else ""
+                    sections.append(
+                        f"{i}. **{author}{handle_str}**{metric_str}\n"
+                        f"   - {text}\n"
+                        f"   - **Link:** [{url}]({url})\n"
+                    )
+                has_content = True
 
             # Live job listings
             if data.get("jobs"):

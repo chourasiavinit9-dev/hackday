@@ -293,3 +293,349 @@
   color: #c94326;
   border: 1px solid #f6d1c7;
 }
+
+/* ── Multi-Entity Result Grids (Twitter, YouTube, Web) ──────────────────── */
+.tweet-grid, .video-grid, .web-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 16px;
+}
+
+/* ── Tweet Cards ── */
+.tweet-card {
+  background: #ffffff;
+  border: 1px solid #e8e3da;
+  border-radius: 12px;
+  padding: 18px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  transition: all 0.2s ease;
+  position: relative;
+  box-shadow: 0 4px 14px rgba(40, 30, 20, 0.03);
+}
+.tweet-card:hover {
+  border-color: #1d9bf0;
+  box-shadow: 0 10px 28px rgba(29, 155, 240, 0.12);
+  transform: translateY(-2px);
+}
+.tweet-card-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+.tweet-author-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.tweet-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: #e8f5fd;
+  color: #1d9bf0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  flex-shrink: 0;
+}
+.tweet-author-meta {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.25;
+}
+.tweet-author-name {
+  font: 700 14px 'Space Grotesk', sans-serif;
+  color: var(--ink);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.tweet-verified-badge {
+  color: #1d9bf0;
+  font-size: 11px;
+}
+.tweet-handle-link {
+  font: 500 12px 'DM Mono', monospace;
+  color: #78716a;
+  text-decoration: none;
+}
+.tweet-handle-link:hover {
+  color: #1d9bf0;
+  text-decoration: underline;
+}
+.tweet-source-pill {
+  font: 600 10px 'DM Mono', monospace;
+  background: #f0f7ff;
+  color: #0369a1;
+  padding: 2px 7px;
+  border-radius: 6px;
+  white-space: nowrap;
+}
+.tweet-body-text {
+  font: 400 13.5px/1.55 'Space Grotesk', sans-serif;
+  color: #2c2724;
+  margin: 0;
+  word-break: break-word;
+}
+.tweet-body-text a {
+  color: #1d9bf0;
+  text-decoration: none;
+}
+.tweet-body-text a:hover {
+  text-decoration: underline;
+}
+.tweet-metrics-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  font: 500 11.5px 'DM Mono', monospace;
+  color: #78716a;
+  padding: 6px 0;
+  border-top: 1px solid #f6f3ee;
+  border-bottom: 1px solid #f6f3ee;
+}
+.tweet-footer-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: auto;
+}
+.tweet-view-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #0f1419;
+  color: #ffffff !important;
+  font: 600 11px 'DM Mono', monospace;
+  padding: 8px 14px;
+  border-radius: 8px;
+  text-decoration: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.tweet-view-btn:hover {
+  background: #1d9bf0;
+  color: #ffffff !important;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(29, 155, 240, 0.35);
+}
+.tweet-domain {
+  font: 10px 'DM Mono', monospace;
+  color: #8c847b;
+}
+
+/* ── YouTube Video Cards ── */
+.video-card {
+  background: #ffffff;
+  border: 1px solid #e8e3da;
+  border-radius: 12px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 14px rgba(40, 30, 20, 0.03);
+}
+.video-card:hover {
+  border-color: #ff0000;
+  box-shadow: 0 10px 28px rgba(255, 0, 0, 0.12);
+  transform: translateY(-2px);
+}
+.video-thumb-wrap {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  background: #1a1715;
+  overflow: hidden;
+  display: block;
+}
+.video-thumb-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.3s ease;
+}
+.video-thumb-wrap:hover .video-thumb-img {
+  transform: scale(1.04);
+}
+.video-play-overlay {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 44px;
+  height: 44px;
+  background: rgba(255, 0, 0, 0.88);
+  color: #ffffff;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  padding-left: 3px;
+  transition: transform 0.2s ease, background 0.2s ease;
+  box-shadow: 0 4px 14px rgba(0,0,0,0.4);
+}
+.video-thumb-wrap:hover .video-play-overlay {
+  transform: translate(-50%, -50%) scale(1.1);
+  background: #ff0000;
+}
+.video-card-content {
+  padding: 16px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  flex: 1;
+}
+.video-title-link {
+  font: 700 15px/1.35 'Space Grotesk', sans-serif;
+  color: var(--ink);
+  text-decoration: none;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.video-title-link:hover {
+  color: #cc0000;
+  text-decoration: underline;
+}
+.video-channel-badge {
+  font: 600 11px 'DM Mono', monospace;
+  color: #443e39;
+  background: #f6f1ea;
+  padding: 3px 8px;
+  border-radius: 6px;
+  align-self: flex-start;
+}
+.video-snippet-text {
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: #615a53;
+  margin: 0;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.video-footer-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: auto;
+  padding-top: 10px;
+  border-top: 1px solid #f4efe9;
+}
+.video-watch-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #cc0000;
+  color: #ffffff !important;
+  font: 600 11px 'DM Mono', monospace;
+  padding: 8px 14px;
+  border-radius: 8px;
+  text-decoration: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.video-watch-btn:hover {
+  background: #ff0000;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(255, 0, 0, 0.35);
+}
+.video-domain {
+  font: 10px 'DM Mono', monospace;
+  color: #8c847b;
+}
+
+/* ── Web Search Cards ── */
+.web-card {
+  background: #ffffff;
+  border: 1px solid #e8e3da;
+  border-radius: 12px;
+  padding: 18px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  transition: all 0.2s ease;
+  position: relative;
+  box-shadow: 0 4px 14px rgba(40, 30, 20, 0.03);
+}
+.web-card:hover {
+  border-color: #3b7428;
+  box-shadow: 0 10px 28px rgba(59, 116, 40, 0.1);
+  transform: translateY(-2px);
+}
+.web-domain-pill {
+  font: 600 10.5px 'DM Mono', monospace;
+  color: #2e6020;
+  background: #edf6ea;
+  padding: 3px 8px;
+  border-radius: 6px;
+  align-self: flex-start;
+}
+.web-title-link {
+  font: 700 15px/1.35 'Space Grotesk', sans-serif;
+  color: var(--ink);
+  text-decoration: none;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.web-title-link:hover {
+  color: #2e6020;
+  text-decoration: underline;
+}
+.web-snippet-text {
+  font-size: 13px;
+  line-height: 1.5;
+  color: #554e48;
+  margin: 0;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.web-footer-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: auto;
+  padding-top: 10px;
+  border-top: 1px solid #f1ece5;
+}
+.web-visit-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--black);
+  color: #ffffff !important;
+  font: 600 11px 'DM Mono', monospace;
+  padding: 8px 14px;
+  border-radius: 8px;
+  text-decoration: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.web-visit-btn:hover {
+  background: #2e6020;
+  color: #ffffff !important;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(46, 96, 32, 0.3);
+}
+.web-domain-text {
+  font: 10px 'DM Mono', monospace;
+  color: #8c847b;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 140px;
+}

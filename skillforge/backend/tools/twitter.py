@@ -208,11 +208,19 @@ def twitter_search(query: str, count: int = 10, mode: str = "top") -> dict:
                 formatted = []
                 for item in raw_tweets[:count]:
                     extra = item.get("extra") or {}
+                    author_str = extra.get("author") or "Unknown"
+                    handle_m = re.search(r"@([A-Za-z0-9_]+)", author_str)
+                    handle = handle_m.group(1) if handle_m else author_str.split(" ")[-1].replace("@", "")
+                    tweet_url = item.get("url", "")
+                    if not tweet_url and handle:
+                        tweet_url = f"https://x.com/{handle}"
+                    elif not tweet_url:
+                        tweet_url = f"https://x.com/search?q={urllib.parse.quote_plus(query)}"
                     formatted.append({
-                        "author": extra.get("author") or "Unknown",
-                        "handle": (extra.get("author") or "").split(" ")[-1],
+                        "author": author_str,
+                        "handle": handle,
                         "text": extra.get("text") or item.get("title", ""),
-                        "url": item.get("url", ""),
+                        "url": tweet_url,
                         "likes": item.get("score") or 0,
                         "reposts": extra.get("reposts") or 0,
                         "replies": item.get("comments") or 0,
