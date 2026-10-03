@@ -639,3 +639,100 @@
   white-space: nowrap;
   max-width: 140px;
 }
+
+/* ── Direct Skills Runner Panel ─────────────────────────────────────────── */
+.skills-panel {
+  margin: 24px 0;
+  padding: 24px 26px;
+  border: 1px solid #e8e1d9;
+  border-radius: 16px;
+  background: #fffdfa;
+  color: var(--ink);
+  font-family: 'Space Grotesk', system-ui, sans-serif;
+  box-shadow: 0 10px 30px rgba(57, 41, 27, 0.05);
+  transition: all 0.3s ease;
+}
+
+.skills-panel h2 { margin: 0 0 6px; font-size: 22px; font-weight: 700; color: var(--ink); }
+.skills-help { margin: 0 0 16px; color: #77717b; font-size: 13.5px; }
+
+#skill-input {
+  display: block;
+  width: 100%;
+  min-height: 90px;
+  box-sizing: border-box;
+  padding: 14px;
+  border: 1px solid #e3dcd4;
+  border-radius: 12px;
+  resize: vertical;
+  font: 14px 'Space Grotesk', sans-serif;
+  background: #faf7f2;
+  color: var(--ink);
+  outline: none;
+  transition: border-color 0.2s, background 0.2s, box-shadow 0.2s;
+}
+
+#skill-input:focus {
+  border-color: #c85391;
+  background: #ffffff;
+  box-shadow: 0 0 0 3px rgba(200, 83, 145, 0.12);
+}
+
+.skill-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.skill-buttons button {
+  padding: 10px 16px;
+  border: 1px solid #eadde5;
+  border-radius: 11px;
+  background: #fbf2f7;
+  color: #69425b;
+  font: 600 12.5px 'DM Mono', monospace;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.18s ease;
+}
+
+.skill-buttons button:hover,
+.skill-buttons button[aria-pressed="true"] {
+  border-color: #c85391;
+  background: #f8e5f0;
+  color: #c85391;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(200, 83, 145, 0.15);
+}
+
+.skill-buttons button:disabled { opacity: .55; cursor: wait; transform: none; }
+
+#skill-status {
+  min-height: 22px;
+  margin: 16px 0 0;
+  color: #706a74;
+  font: 500 12px 'DM Mono', monospace;
+}
+
+.skill-result {
+  margin-top: 14px;
+  padding: 20px;
+  border: 1px solid #eee7df;
+  border-radius: 14px;
+  line-height: 1.6;
+  background: #ffffff;
+  overflow-wrap: anywhere;
+  box-shadow: 0 4px 16px rgba(40, 30, 20, 0.03);
+}
+
+.skill-result h3 { margin: 0 0 8px; font-size: 17px; color: var(--ink); }
+.skill-result p { margin: 6px 0 12px; color: #4e4844; font-size: 13.5px; }
+.skill-result ul { padding-left: 20px; margin: 8px 0; }
+.skill-result li { margin: 12px 0; }
+.skill-result a { color: #8a3970; font-weight: 600; text-decoration: none; font-size: 14px; }
+.skill-result a:hover { text-decoration: underline; color: #c85391; }
+.skill-result .snippet { margin: 4px 0 0; color: #69636d; font-size: 13px; line-height: 1.45; }
+.skill-error { color: #a52f2f !important; font-weight: 600; }

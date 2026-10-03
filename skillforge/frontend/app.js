@@ -1066,10 +1066,15 @@ function switchView(target) {
     window.scrollTo({ top: 0, behavior: 'smooth' });
     goalInput.focus();
   } else if (target === 'skills') {
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    const directPanel = $('#skillsDirectPanel');
+    if (directPanel) {
+      directPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      const sInput = $('#skill-input');
+      if (sInput) sInput.focus();
+    }
     $$('.skill-shortcuts button').forEach(b => {
       b.style.transition = 'background 0.3s';
-      b.style.background = '#e8e3da';
+      b.style.background = '#f8e5f0';
       setTimeout(() => b.style.background = '', 800);
     });
   } else if (target === 'settings') {
@@ -1543,6 +1548,115 @@ document.addEventListener('keydown', (event) => {
     closeSettings();
   }
 });
+
+// ── Direct Skills Runner Logic ────────────────────────────────────────────────
+const skillInput = document.querySelector("#skill-input");
+const skillStatus = document.querySelector("#skill-status");
+const skillAnswer = document.querySelector("#skill-answer");
+const skillButtons = [...document.querySelectorAll("#skillsDirectPanel [data-skill]")];
+
+for (const button of skillButtons) {
+  button.addEventListener("click", () => runDirectSkill(button));
+}
+
+async function runDirectSkill(button) {
+  const skillId = button.dataset.skill;
+  const userInput = (skillInput ? skillInput.value : '').trim();
+
+  if (!userInput) {
+    if (skillStatus) {
+      skillStatus.textContent = "Enter a topic or URL first.";
+      skillStatus.className = "skill-error";
+    }
+    if (skillInput) skillInput.focus();
+    return;
+  }
+
+  skillButtons.forEach((item) => {
+    item.disabled = true;
+    item.setAttribute("aria-pressed", String(item === button));
+  });
+  if (skillStatus) {
+    skillStatus.textContent = `Running ${button.textContent.trim()}…`;
+    skillStatus.className = "";
+  }
+  if (skillAnswer) skillAnswer.replaceChildren();
+
+  try {
+    const response = await fetch(`${API_BASE}/api/skills/run`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ skill_id: skillId, input: userInput })
+    });
+
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data.detail || data.error || "The skill could not run.");
+    }
+
+    showDirectSkillResult(data);
+    if (skillStatus) {
+      skillStatus.textContent = "Skill finished.";
+      skillStatus.className = "";
+    }
+    refreshLedger();
+  } catch (error) {
+    if (skillStatus) {
+      skillStatus.textContent = error.message;
+      skillStatus.className = "skill-error";
+    }
+  } finally {
+    skillButtons.forEach((item) => { item.disabled = false; });
+  }
+}
+
+function showDirectSkillResult(data) {
+  if (!skillAnswer) return;
+  const card = document.createElement("section");
+  card.className = "skill-result";
+
+  const heading = document.createElement("h3");
+  heading.textContent = data.title || "Results";
+  card.append(heading);
+
+  if (data.summary) {
+    const summary = document.createElement("p");
+    summary.textContent = data.summary;
+    card.append(summary);
+  }
+
+  if (Array.isArray(data.results) && data.results.length) {
+    const list = document.createElement("ul");
+
+    for (const result of data.results) {
+      const item = document.createElement("li");
+      const link = document.createElement("a");
+
+      link.href = result.url || "#";
+      link.target = "_blank";
+      link.rel = "noopener noreferrer";
+      link.textContent = result.title || result.url || "Link";
+      item.append(link);
+
+      if (result.snippet) {
+        const snippet = document.createElement("p");
+        snippet.className = "snippet";
+        snippet.textContent = result.snippet;
+        item.append(snippet);
+      }
+
+      list.append(item);
+    }
+
+    card.append(list);
+  } else if (!data.summary) {
+    const empty = document.createElement("p");
+    empty.textContent = "No results were returned.";
+    card.append(empty);
+  }
+
+  skillAnswer.replaceChildren(card);
+}
 
 // ── Initial Load ──────────────────────────────────────────────────────────────
 refreshLedger();

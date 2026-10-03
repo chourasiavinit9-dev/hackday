@@ -80,6 +80,15 @@ def _live_web_search(query: str, num_results: int = 5) -> list[dict]:
     except Exception:
         pass
 
+    try:
+        from tools.agent_reach import reach_web_search
+        reach_res = reach_web_search(query, num_results=num_results)
+        valid = [r for r in reach_res if isinstance(r, dict) and r.get("url") and not r.get("error")]
+        if valid:
+            return valid
+    except Exception:
+        pass
+
     api_key = os.environ.get("GOOGLE_API_KEY")
     cx = os.environ.get("GOOGLE_SEARCH_CX")
     if api_key and cx:

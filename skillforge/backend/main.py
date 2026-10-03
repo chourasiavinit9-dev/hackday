@@ -326,6 +326,121 @@ async def test_discord_webhook(req: DiscordTestRequest):
     return {"ok": True, "status": "simulated", "channel": _SETTINGS_STATE.get("discord_channel")}
 
 
+# ── Individual Skill Runner Endpoint ──────────────────────────────────────────
+
+class SkillRunRequest(BaseModel):
+    skill_id: str
+    input: str
+
+
+@app.post("/api/skills/run")
+async def run_single_skill(req: SkillRunRequest):
+    skill_id = (req.skill_id or "").strip()
+    user_input = (req.input or "").strip()
+
+    if not user_input:
+        raise HTTPException(status_code=400, detail="Please enter a topic or URL.")
+
+    ledger = get_ledger()
+
+    try:
+        if skill_id in ("web_search", "search"):
+            from tools.runtime import web_search
+            raw = web_search(user_input, num_results=6)
+            results = raw.get("results", [])
+            ledger.append("skills-runner", "web-search", "web_search", {"query": user_input}, {"count": len(results)})
+            return {
+                "title": f"Web Search Results for '{user_input}'",
+                "summary": f"Found {len(results)} live search results.",
+                "results": [
+                    {
+                        "title": r.get("title") or "Web Page",
+                        "url": r.get("url") or "#",
+                        "snippet": r.get("snippet") or ""
+                    }
+                    for r in results
+                ]
+            }
+
+        elif skill_id in ("webpage_reader", "read_webpage", "web_reader"):
+            from tools.agent_reach import reach_web_read
+            from tools.runtime import webpage_reader
+            res = reach_web_read(user_input)
+            content = res.get("content", "")
+            if not content or res.get("error"):
+                raw = webpage_reader(user_input)
+                content = raw.get("content", "")
+            summary = content[:400] + ("..." if len(content) > 400 else "") if content else "Page loaded successfully."
+            ledger.append("skills-runner", "webpage-reader", "webpage_reader", {"url": user_input}, {"length": len(content)})
+            return {
+                "title": f"Webpage Extracted: {user_input}",
+                "summary": summary,
+                "results": [
+                    {
+                        "title": user_input,
+                        "url": user_input,
+                        "snippet": content[:300]
+                    }
+                ]
+            }
+
+        elif skill_id in ("youtube_search", "youtube_scraper"):
+            from tools.runtime import youtube_search
+            raw = youtube_search(user_input, num_results=5)
+            videos = raw.get("videos", [])
+            ledger.append("skills-runner", "youtube-scraper", "youtube_search", {"query": user_input}, {"count": len(videos)})
+            return {
+                "title": f"YouTube Videos for '{user_input}'",
+                "summary": f"Found {len(videos)} YouTube videos.",
+                "results": [
+                    {
+                        "title": v.get("title") or "YouTube Video",
+                        "url": v.get("url") or f"https://www.youtube.com/watch?v={v.get('video_id', '')}",
+                        "snippet": v.get("snippet") or (f"Channel: {v.get('channel')}" if v.get("channel") else "")
+                    }
+                    for v in videos
+                ]
+            }
+
+        elif skill_id in ("twitter_search", "twitter_post"):
+            import urllib.parse
+            from tools.twitter import twitter_search
+            raw = twitter_search(user_input, count=6)
+            tweets = raw.get("tweets", [])
+            ledger.append("skills-runner", "twitter-search", "twitter_search", {"query": user_input}, {"count": len(tweets)})
+            return {
+                "title": f"Twitter / X Posts for '{user_input}'",
+                "summary": f"Found {len(tweets)} relevant posts from Twitter/X.",
+                "results": [
+                    {
+                        "title": f"{t.get('author', 'Twitter User')}",
+                        "url": t.get("url") or f"https://x.com/search?q={urllib.parse.quote_plus(user_input)}",
+                        "snippet": t.get("text") or ""
+                    }
+                    for t in tweets
+                ]
+            }
+
+        else:
+            from tools.runtime import run_tool
+            res = run_tool(skill_id, {"query": user_input})
+            ledger.append("skills-runner", skill_id, skill_id, {"input": user_input}, {})
+            return {
+                "title": f"Skill '{skill_id}' Result",
+                "summary": f"Executed skill '{skill_id}' successfully.",
+                "results": [
+                    {
+                        "title": f"{skill_id} Output",
+                        "url": "#",
+                        "snippet": str(res)[:350]
+                    }
+                ]
+            }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+
 # ── Frontend static serving (single-service deploy) ───────────────────────────
 _frontend_dir = Path(__file__).resolve().parent.parent / "frontend"
 
